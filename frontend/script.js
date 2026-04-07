@@ -114,13 +114,17 @@ function handleRunSimulation() {
 		result = fcfsScheduling(processData);
 		console.log('FCFS Scheduling Results:', result.results);
 		console.log('FCFS Execution Timeline:', result.timeline);
-		
-		// Render the Gantt chart
-		renderGanttChart(result.timeline);
+	} else if (selectedAlgorithm === 'SJF') {
+		result = sjfScheduling(processData);
+		console.log('SJF Scheduling Results:', result.results);
+		console.log('SJF Execution Timeline:', result.timeline);
 	} else {
 		console.log(`${selectedAlgorithm} scheduling algorithm not implemented yet.`);
 		return;
 	}
+		
+	// Render the Gantt chart
+	renderGanttChart(result.timeline);
 }
 
 /**
@@ -225,6 +229,72 @@ function fcfsScheduling(processes) {
 	// Return both results and timeline
 	return {
 		results: scheduledProcesses,
+		timeline: timeline
+	};
+}
+
+/**
+ * Perform SJF (Shortest Job First) Non-Preemptive scheduling
+ * @param {Array} processes - Array of process objects with id, arrival, burst
+ * @returns {Object} Object with results array and timeline array
+ */
+function sjfScheduling(processes) {
+	// Create a copy of processes to avoid modifying original array
+	const pendingProcesses = JSON.parse(JSON.stringify(processes));
+
+	// Sort by arrival to make ready-queue intake efficient
+	pendingProcesses.sort((a, b) => a.arrival - b.arrival);
+
+	let currentTime = 0;
+	let nextArrivalIndex = 0;
+	const readyQueue = [];
+	const completedProcesses = [];
+	const timeline = [];
+
+	while (completedProcesses.length < pendingProcesses.length) {
+		// Add all processes that have arrived by currentTime to the ready queue
+		while (
+			nextArrivalIndex < pendingProcesses.length &&
+			pendingProcesses[nextArrivalIndex].arrival <= currentTime
+		) {
+			readyQueue.push(pendingProcesses[nextArrivalIndex]);
+			nextArrivalIndex += 1;
+		}
+
+		// If no process is ready, CPU stays idle for 1 unit
+		if (readyQueue.length === 0) {
+			currentTime += 1;
+			continue;
+		}
+
+		// Pick process with smallest burst time (stable tie-breaks for determinism)
+		readyQueue.sort((a, b) => {
+			if (a.burst !== b.burst) return a.burst - b.burst;
+			if (a.arrival !== b.arrival) return a.arrival - b.arrival;
+			return a.id.localeCompare(b.id);
+		});
+
+		const selectedProcess = readyQueue.shift();
+		const startTime = currentTime;
+		const endTime = currentTime + selectedProcess.burst;
+
+		selectedProcess.startTime = startTime;
+		selectedProcess.completionTime = endTime;
+		selectedProcess.turnaroundTime = selectedProcess.completionTime - selectedProcess.arrival;
+		selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
+
+		timeline.push({
+			id: selectedProcess.id,
+			start: startTime,
+			end: endTime
+		});
+
+		completedProcesses.push(selectedProcess);
+		currentTime = endTime;
+	}
+
+	return {
+		results: completedProcesses,
 		timeline: timeline
 	};
 }
