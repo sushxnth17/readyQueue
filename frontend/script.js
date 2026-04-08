@@ -118,6 +118,10 @@ function handleRunSimulation() {
 		result = sjfScheduling(processData);
 		console.log('SJF Scheduling Results:', result.results);
 		console.log('SJF Execution Timeline:', result.timeline);
+	} else if (selectedAlgorithm === 'SRTF') {
+		result = srtfScheduling(processData);
+		console.log('SRTF Scheduling Results:', result.results);
+		console.log('SRTF Execution Timeline:', result.timeline);
 	} else {
 		console.log(`${selectedAlgorithm} scheduling algorithm not implemented yet.`);
 		return;
@@ -295,6 +299,76 @@ function sjfScheduling(processes) {
 
 	return {
 		results: completedProcesses,
+		timeline: timeline
+	};
+}
+
+/**
+ * Perform SRTF (Shortest Remaining Time First) Preemptive scheduling
+ * @param {Array} processes - Array of process objects with id, arrival, burst
+ * @returns {Object} Object with results array and timeline array
+ */
+function srtfScheduling(processes) {
+	// Create a copy so original data remains unchanged
+	const scheduledProcesses = JSON.parse(JSON.stringify(processes)).map((process) => ({
+		...process,
+		remainingTime: process.burst
+	}));
+
+	let currentTime = 0;
+	let completedCount = 0;
+	const timeline = [];
+
+	while (completedCount < scheduledProcesses.length) {
+		// Get all arrived and unfinished processes
+		const availableProcesses = scheduledProcesses.filter(
+			(process) => process.arrival <= currentTime && process.remainingTime > 0
+		);
+
+		// If no process is ready, CPU remains idle for one time unit
+		if (availableProcesses.length === 0) {
+			currentTime += 1;
+			continue;
+		}
+
+		// Select process with shortest remaining time
+		availableProcesses.sort((a, b) => {
+			if (a.remainingTime !== b.remainingTime) return a.remainingTime - b.remainingTime;
+			if (a.arrival !== b.arrival) return a.arrival - b.arrival;
+			return a.id.localeCompare(b.id);
+		});
+
+		const selectedProcess = availableProcesses[0];
+		const startTime = currentTime;
+		const endTime = currentTime + 1;
+
+		// Merge with previous segment if the same process continues execution
+		const lastSegment = timeline[timeline.length - 1];
+		if (lastSegment && lastSegment.id === selectedProcess.id && lastSegment.end === startTime) {
+			lastSegment.end = endTime;
+		} else {
+			timeline.push({
+				id: selectedProcess.id,
+				start: startTime,
+				end: endTime
+			});
+		}
+
+		// Execute for one unit and advance time
+		selectedProcess.remainingTime -= 1;
+		currentTime += 1;
+
+		// If process just finished, calculate completion metrics
+		if (selectedProcess.remainingTime === 0) {
+			selectedProcess.completionTime = currentTime;
+			selectedProcess.turnaroundTime = selectedProcess.completionTime - selectedProcess.arrival;
+			selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
+			completedCount += 1;
+		}
+	}
+
+	return {
+		results: scheduledProcesses,
 		timeline: timeline
 	};
 }
