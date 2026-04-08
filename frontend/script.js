@@ -374,10 +374,10 @@ function srtfScheduling(processes) {
 }
 
 /**
- * Render Gantt chart visualization in a single timeline row with animation
+ * Render Gantt chart visualization with step-by-step animated execution
  * @param {Array} timeline - Array of timeline objects with id, start, end
  */
-function renderGanttChart(timeline) {
+async function renderGanttChart(timeline) {
 	const ganttChart = document.getElementById('ganttChart');
 	const ganttSection = document.getElementById('ganttSection');
 	
@@ -390,7 +390,8 @@ function renderGanttChart(timeline) {
 	}
 	
 	const SCALE = 50; // 50px per unit time
-	const ANIMATION_DELAY = 400; // Delay between each block animation (ms)
+	const BASE_ANIMATION_TIME = 0.4; // Base animation duration in seconds
+	const STEP_DELAY = 100; // Delay between rendering each block (ms)
 	
 	// Create timeline container
 	const timelineDiv = document.createElement('div');
@@ -405,31 +406,53 @@ function renderGanttChart(timeline) {
 	const totalWidth = maxTime * SCALE;
 	blocksContainer.style.width = totalWidth + 'px';
 	
-	// Create blocks for each process in execution order
-	timeline.forEach((processTimeline, index) => {
-		const block = document.createElement('div');
-		block.className = `ganttBlock color-${index % 8} animate pulse`;
+	// Show the gantt section immediately
+	ganttSection.style.display = 'block';
+	ganttChart.appendChild(timelineDiv);
+	timelineDiv.appendChild(blocksContainer);
+	
+	// Animate blocks one by one
+	for (let index = 0; index < timeline.length; index++) {
+		const processTimeline = timeline[index];
 		
-		// Calculate width in pixels based on duration
+		// Create block element
+		const block = document.createElement('div');
+		block.className = `ganttBlock color-${index % 8}`;
+		
+		// Calculate dimensions
 		const duration = processTimeline.end - processTimeline.start;
 		const blockWidth = duration * SCALE;
 		
-		// Set animation delay based on block index
-		const animationDelay = index * (ANIMATION_DELAY / 1000); // Convert to seconds
-		block.style.animationDelay = animationDelay + 's';
+		// Set animation duration proportional to block duration
+		const animationDuration = Math.max(BASE_ANIMATION_TIME, duration * 0.1);
 		
-		block.style.width = blockWidth + 'px';
+		// Set styles
+		block.style.width = '0px'; // Start with 0 width
+		block.style.minWidth = blockWidth + 'px';
 		block.textContent = processTimeline.id;
-		block.title = `${processTimeline.id}: ${processTimeline.start} - ${processTimeline.end} (Duration: ${duration})`;
+		block.title = `${processTimeline.id}: Time ${processTimeline.start} - ${processTimeline.end} (Duration: ${duration} units)`;
 		block.setAttribute('data-start', processTimeline.start);
 		block.setAttribute('data-end', processTimeline.end);
+		block.setAttribute('data-duration', duration);
 		
+		// Append block to container
 		blocksContainer.appendChild(block);
-	});
+		
+		// Trigger animation after a frame to ensure CSS transitions apply
+		await new Promise(resolve => requestAnimationFrame(resolve));
+		
+		// Apply animation
+		block.classList.add('animate', 'pulse');
+		block.style.setProperty('--animation-duration', animationDuration);
+		block.style.animation = `ganttBlockGrow ${animationDuration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards, ganttBlockPulse 0.8s ease-out ${animationDuration}s`;
+		block.style.width = blockWidth + 'px';
+		block.style.transition = `width ${animationDuration}s cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
+		
+		// Wait for this block's animation to complete before adding next block
+		await new Promise(resolve => setTimeout(resolve, animationDuration * 1000 + STEP_DELAY));
+	}
 	
-	timelineDiv.appendChild(blocksContainer);
-	
-	// Create time scale with markers at block boundaries
+	// Create time scale with markers (appears after all blocks)
 	const timeScale = document.createElement('div');
 	timeScale.className = 'ganttTimeScale';
 	timeScale.style.width = totalWidth + 'px';
@@ -443,22 +466,15 @@ function renderGanttChart(timeline) {
 	const sortedTimes = Array.from(timePoints).sort((a, b) => a - b);
 	
 	// Create markers at each time point with fade-in animation
-	sortedTimes.forEach((time, index) => {
+	sortedTimes.forEach((time) => {
 		const marker = document.createElement('div');
 		marker.className = 'ganttTimeMarker';
 		marker.textContent = time;
 		marker.style.left = (time * SCALE) + 'px';
-		
-		// Stagger marker animation to match block animations
-		const markerDelay = (timeline.length * (ANIMATION_DELAY / 1000)) + 0.2;
-		marker.style.animation = `fadeIn 0.4s ease-in forwards ${markerDelay}s`;
+		marker.style.animation = `fadeIn 0.4s ease-in forwards`;
 		
 		timeScale.appendChild(marker);
 	});
 	
 	timelineDiv.appendChild(timeScale);
-	ganttChart.appendChild(timelineDiv);
-	
-	// Show the gantt section
-	ganttSection.style.display = 'block';
 }
