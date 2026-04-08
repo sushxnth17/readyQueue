@@ -390,8 +390,8 @@ async function renderGanttChart(timeline) {
 	}
 	
 	const SCALE = 50; // 50px per unit time
-	const BASE_ANIMATION_TIME = 0.4; // Base animation duration in seconds
-	const STEP_DELAY = 100; // Delay between rendering each block (ms)
+	const MS_PER_UNIT = 320; // Single source of truth for animation speed
+	const MIN_SEGMENT_MS = 220; // Keeps tiny segments visible
 	
 	// Create timeline container
 	const timelineDiv = document.createElement('div');
@@ -411,7 +411,40 @@ async function renderGanttChart(timeline) {
 	ganttChart.appendChild(timelineDiv);
 	timelineDiv.appendChild(blocksContainer);
 	
-	// Animate blocks one by one
+	// Create time scale with markers (appears immediately)
+	const timeScale = document.createElement('div');
+	timeScale.className = 'ganttTimeScale';
+	timeScale.style.width = totalWidth + 'px';
+	
+	// Collect all unique time points (block boundaries)
+	const timePoints = new Set();
+	timeline.forEach(t => {
+		timePoints.add(t.start);
+		timePoints.add(t.end);
+	});
+	const sortedTimes = Array.from(timePoints).sort((a, b) => a - b);
+	
+	// Create markers at each time point (visible from start)
+	sortedTimes.forEach((time) => {
+		const marker = document.createElement('div');
+		marker.className = 'ganttTimeMarker';
+		marker.textContent = time;
+		marker.setAttribute('data-time', String(time));
+		marker.style.left = (time * SCALE) + 'px';
+		marker.style.opacity = '0.6';
+		
+		timeScale.appendChild(marker);
+	});
+	
+	timelineDiv.appendChild(timeScale);
+	
+	// Start cursor animation immediately (in parallel with blocks)
+	const cursorPromise = animateTimeCursor(timeline, {
+		scale: SCALE,
+		msPerUnit: MS_PER_UNIT
+	});
+	
+	// Animate blocks one by one in sync with cursor
 	for (let index = 0; index < timeline.length; index++) {
 		const processTimeline = timeline[index];
 		
@@ -423,8 +456,9 @@ async function renderGanttChart(timeline) {
 		const duration = processTimeline.end - processTimeline.start;
 		const blockWidth = duration * SCALE;
 		
-		// Set animation duration proportional to block duration
-		const animationDuration = Math.max(BASE_ANIMATION_TIME, duration * 0.1);
+		// Use the same simulation clock as the cursor for perfect sync
+		const animationDurationMs = Math.max(duration * MS_PER_UNIT, MIN_SEGMENT_MS);
+		const animationDuration = animationDurationMs / 1000;
 		
 		// Set styles
 		block.style.width = '0px'; // Start with 0 width
@@ -449,32 +483,123 @@ async function renderGanttChart(timeline) {
 		block.style.transition = `width ${animationDuration}s cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
 		
 		// Wait for this block's animation to complete before adding next block
-		await new Promise(resolve => setTimeout(resolve, animationDuration * 1000 + STEP_DELAY));
+		await new Promise(resolve => setTimeout(resolve, animationDurationMs));
 	}
 	
-	// Create time scale with markers (appears after all blocks)
-	const timeScale = document.createElement('div');
-	timeScale.className = 'ganttTimeScale';
-	timeScale.style.width = totalWidth + 'px';
+	// Wait for cursor to finish
+	await cursorPromise;
+}
+
+/**
+ * Animate a moving time cursor through the Gantt chart
+ * Works with all scheduling algorithms (FCFS, SJF, SRTF, etc.)
+ * Synchronized with block animations for smooth visual experience
+ * @param {Array} timeline - Array of timeline objects with id, start, end
+ */
+async function animateTimeCursor(timeline, options = {}) {
+	if (!timeline || timeline.length === 0) return;
 	
-	// Collect all unique time points (block boundaries)
-	const timePoints = new Set();
-	timeline.forEach(t => {
-		timePoints.add(t.start);
-		timePoints.add(t.end);
-	});
-	const sortedTimes = Array.from(timePoints).sort((a, b) => a - b);
+	const blocksContainer = document.querySelector('.ganttBlocksContainer');
+	if (!blocksContainer) return;
 	
-	// Create markers at each time point with fade-in animation
-	sortedTimes.forEach((time) => {
-		const marker = document.createElement('div');
-		marker.className = 'ganttTimeMarker';
-		marker.textContent = time;
-		marker.style.left = (time * SCALE) + 'px';
-		marker.style.animation = `fadeIn 0.4s ease-in forwards`;
+	// Remove any existing cursor to reset properly
+	const existingCursor = document.querySelector('.timeCursor');
+	if (existingCursor) existingCursor.remove();
+	
+	// Configuration for smooth animation
+	const SCALE = options.scale || 50;
+	const MS_PER_UNIT = options.msPerUnit || 320;
+	
+	// Calculate total simulation time
+	const totalTime = Math.max(...timeline.map(t => t.end));
+	
+	// Create and insert cursor element
+	const cursor = document.createElement('div');
+	cursor.className = 'timeCursor';
+	cursor.setAttribute('data-time', '0');
+	cursor.style.left = '0px';
+	blocksContainer.appendChild(cursor);
+	
+	// Track cursor animation state
+	let currentTime = 0;
+	const animationStart = performance.now();
+	
+	return new Promise(resolve => {
+		function animateFrame(timestamp) {
+			const elapsed = timestamp - animationStart;
+			
+			// Convert elapsed wall time to simulated CPU time
+			currentTime = elapsed / MS_PER_UNIT;
+			
+			// Stop when simulation time is reached
+			if (currentTime >= totalTime) {
+				currentTime = totalTime;
+				updateCursorPosition(currentTime);
+				highlightActiveBlock(currentTime);
+				resolve();
+				return;
+			}
+			
+			// Update cursor visuals
+			updateCursorPosition(currentTime);
+			highlightActiveBlock(currentTime);
+			
+			// Continue animation
+			requestAnimationFrame(animateFrame);
+		}
 		
-		timeScale.appendChild(marker);
+		/**
+		 * Update cursor position and time label
+		 */
+		function updateCursorPosition(time) {
+			const pixelPosition = time * SCALE;
+			cursor.style.left = pixelPosition + 'px';
+			cursor.setAttribute('data-time', time.toFixed(1));
+
+			// Visually show passed time points for easier reading
+			const markers = Array.from(document.querySelectorAll('.ganttTimeMarker'));
+			markers.forEach((marker) => {
+				const markerTime = parseFloat(marker.getAttribute('data-time'));
+				if (!isNaN(markerTime) && markerTime <= time + 0.01) {
+					marker.classList.add('active');
+				} else {
+					marker.classList.remove('active');
+				}
+			});
+		}
+		
+		/**
+		 * Highlight the currently executing block
+		 */
+		function highlightActiveBlock(currentTime) {
+			// Get fresh block references (they're added dynamically)
+			const blocks = Array.from(blocksContainer.querySelectorAll('.ganttBlock'));
+			blocks.forEach(block => block.classList.remove('active'));
+			
+			// Find the timeline segment executing at current time
+			const activeSegment = timeline.find(segment =>
+				currentTime >= segment.start && currentTime < segment.end
+			);
+			
+			if (activeSegment) {
+				// Find and highlight the matching block
+				const activeBlock = blocks.find(block => {
+					const blockStart = parseFloat(block.getAttribute('data-start'));
+					const blockEnd = parseFloat(block.getAttribute('data-end'));
+					const blockId = block.textContent.trim();
+					
+					return blockId === activeSegment.id &&
+						   blockStart === activeSegment.start &&
+						   blockEnd === activeSegment.end;
+				});
+				
+				if (activeBlock) {
+					activeBlock.classList.add('active');
+				}
+			}
+		}
+		
+		// Start the animation loop
+		requestAnimationFrame(animateFrame);
 	});
-	
-	timelineDiv.appendChild(timeScale);
 }
