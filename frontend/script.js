@@ -122,6 +122,18 @@ function handleRunSimulation() {
 		result = srtfScheduling(processData);
 		console.log('SRTF Scheduling Results:', result.results);
 		console.log('SRTF Execution Timeline:', result.timeline);
+	} else if (selectedAlgorithm === 'Round Robin') {
+		const timeQuantumInput = document.getElementById('timeQuantum');
+		const timeQuantum = Number(timeQuantumInput ? timeQuantumInput.value : NaN);
+
+		if (!Number.isFinite(timeQuantum) || timeQuantum <= 0) {
+			console.warn('Please enter a valid positive Time Quantum for Round Robin.');
+			return;
+		}
+
+		result = roundRobinScheduling(processData, timeQuantum);
+		console.log(`Round Robin Scheduling Results (q=${timeQuantum}):`, result.results);
+		console.log('Round Robin Execution Timeline:', result.timeline);
 	} else {
 		console.log(`${selectedAlgorithm} scheduling algorithm not implemented yet.`);
 		return;
@@ -366,6 +378,117 @@ function srtfScheduling(processes) {
 			completedCount += 1;
 		}
 	}
+
+	return {
+		results: scheduledProcesses,
+		timeline: timeline
+	};
+}
+
+/**
+ * Perform Round Robin scheduling
+ * @param {Array} processes - Array of process objects with id, arrival, burst
+ * @param {number} quantum - Time quantum for each CPU slice
+ * @returns {Object} Object with results array and timeline array
+ */
+function roundRobinScheduling(processes, quantum) {
+	const timeQuantum = Number(quantum);
+
+	if (!Number.isFinite(timeQuantum) || timeQuantum <= 0) {
+		throw new Error('Time quantum must be a positive number.');
+	}
+
+	// Clone input and initialize execution metadata
+	const scheduledProcesses = JSON.parse(JSON.stringify(processes)).map((process) => ({
+		...process,
+		remainingTime: process.burst,
+		completionTime: null,
+		turnaroundTime: null,
+		waitingTime: null,
+		inQueue: false
+	}));
+
+	// Sort by arrival to efficiently intake newly arrived processes
+	scheduledProcesses.sort((a, b) => {
+		if (a.arrival !== b.arrival) return a.arrival - b.arrival;
+		return a.id.localeCompare(b.id);
+	});
+
+	let currentTime = 0;
+	let nextArrivalIndex = 0;
+	let completedCount = 0;
+	const queue = [];
+	const timeline = [];
+
+	function addArrivedProcesses(upToTime) {
+		while (
+			nextArrivalIndex < scheduledProcesses.length &&
+			scheduledProcesses[nextArrivalIndex].arrival <= upToTime
+		) {
+			const arrivedProcess = scheduledProcesses[nextArrivalIndex];
+			if (arrivedProcess.remainingTime > 0 && !arrivedProcess.inQueue) {
+				queue.push(arrivedProcess);
+				arrivedProcess.inQueue = true;
+			}
+			nextArrivalIndex += 1;
+		}
+	}
+
+	function addTimelineSegment(id, start, end) {
+		const lastSegment = timeline[timeline.length - 1];
+		if (lastSegment && lastSegment.id === id && lastSegment.end === start) {
+			lastSegment.end = end;
+			return;
+		}
+
+		timeline.push({
+			id: id,
+			start: start,
+			end: end
+		});
+	}
+
+	while (completedCount < scheduledProcesses.length) {
+		addArrivedProcesses(currentTime);
+
+		if (queue.length === 0) {
+			if (nextArrivalIndex < scheduledProcesses.length) {
+				currentTime = Math.max(currentTime, scheduledProcesses[nextArrivalIndex].arrival);
+				addArrivedProcesses(currentTime);
+			}
+			continue;
+		}
+
+		const selectedProcess = queue.shift();
+		selectedProcess.inQueue = false;
+
+		const startTime = currentTime;
+		const runTime = Math.min(timeQuantum, selectedProcess.remainingTime);
+		const endTime = startTime + runTime;
+
+		addTimelineSegment(selectedProcess.id, startTime, endTime);
+
+		currentTime = endTime;
+		selectedProcess.remainingTime -= runTime;
+
+		// Newly arrived processes join the queue during this execution slice
+		addArrivedProcesses(currentTime);
+
+		if (selectedProcess.remainingTime > 0) {
+			queue.push(selectedProcess);
+			selectedProcess.inQueue = true;
+		} else {
+			selectedProcess.completionTime = currentTime;
+			selectedProcess.turnaroundTime = selectedProcess.completionTime - selectedProcess.arrival;
+			selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
+			completedCount += 1;
+		}
+	}
+
+	// Remove internal helper flag from final results
+	scheduledProcesses.forEach((process) => {
+		delete process.inQueue;
+	});
 
 	return {
 		results: scheduledProcesses,
