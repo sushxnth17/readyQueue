@@ -134,6 +134,10 @@ function handleRunSimulation() {
 		result = roundRobinScheduling(processData, timeQuantum);
 		console.log(`Round Robin Scheduling Results (q=${timeQuantum}):`, result.results);
 		console.log('Round Robin Execution Timeline:', result.timeline);
+	} else if (selectedAlgorithm === 'Priority') {
+		result = priorityScheduling(processData);
+		console.log('Priority Scheduling Results:', result.results);
+		console.log('Priority Execution Timeline:', result.timeline);
 	} else {
 		console.log(`${selectedAlgorithm} scheduling algorithm not implemented yet.`);
 		return;
@@ -377,6 +381,92 @@ function srtfScheduling(processes) {
 			selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
 			completedCount += 1;
 		}
+	}
+
+	return {
+		results: scheduledProcesses,
+		timeline: timeline
+	};
+}
+
+/**
+ * Perform Priority (Preemptive) scheduling
+ * Lower priority value means higher priority
+ * @param {Array} processes - Array of process objects with id, arrival, burst, priority
+ * @returns {Object} Object with results array and timeline array
+ */
+function priorityScheduling(processes) {
+	// Create a copy so original data remains unchanged
+	const scheduledProcesses = JSON.parse(JSON.stringify(processes)).map((process) => ({
+		...process,
+		remainingTime: process.burst
+	}));
+
+	let currentTime = 0;
+	let completedCount = 0;
+	const timeline = [];
+
+	function addTimelineSegment(id, start, end) {
+		const lastSegment = timeline[timeline.length - 1];
+		if (lastSegment && lastSegment.id === id && lastSegment.end === start) {
+			lastSegment.end = end;
+		} else {
+			timeline.push({
+				id: id,
+				start: start,
+				end: end
+			});
+		}
+	}
+
+	while (completedCount < scheduledProcesses.length) {
+		// Get all arrived and unfinished processes
+		const availableProcesses = scheduledProcesses.filter(
+			(process) => process.arrival <= currentTime && process.remainingTime > 0
+		);
+
+		// If no process is ready, CPU remains idle for one time unit
+		if (availableProcesses.length === 0) {
+			addTimelineSegment('IDLE', currentTime, currentTime + 1);
+			currentTime += 1;
+			continue;
+		}
+
+		// Deterministic tie-breaking at each time unit
+		const selectedProcess = availableProcesses.reduce((best, curr) => {
+			if (!best) return curr;
+
+			if (curr.priority < best.priority) return curr;
+
+			if (curr.priority === best.priority) {
+				if (curr.remainingTime < best.remainingTime) return curr;
+
+				if (curr.remainingTime === best.remainingTime) {
+					if (curr.arrival < best.arrival) return curr;
+
+					if (curr.arrival === best.arrival) {
+						if (curr.id.localeCompare(best.id) < 0) return curr;
+					}
+				}
+			}
+
+			return best;
+		}, null);
+
+		addTimelineSegment(selectedProcess.id, currentTime, currentTime + 1);
+
+		// Execute for one unit and advance time
+		selectedProcess.remainingTime -= 1;
+
+		// If process just finished, calculate completion metrics
+		if (selectedProcess.remainingTime === 0) {
+			selectedProcess.completionTime = currentTime + 1;
+			selectedProcess.turnaroundTime = selectedProcess.completionTime - selectedProcess.arrival;
+			selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
+			completedCount += 1;
+		}
+
+		currentTime += 1;
 	}
 
 	return {
