@@ -17,21 +17,35 @@
 			<section aria-labelledby="process-input-heading">
 				<h2 id="process-input-heading">Process Input</h2>
 
+				<div>
+					<label for="processCount">Number of Processes:</label>
+					<input
+						id="processCount"
+						type="number"
+						name="processCount"
+						value="3"
+						min="1"
+						step="1"
+						aria-label="Number of Processes"
+					>
+					<button id="generateTableBtn" type="button">Generate Table</button>
+				</div>
+
 				<table id="processTable">
 					<thead>
 						<tr>
 							<th scope="col">Process ID</th>
 							<th scope="col">Arrival Time</th>
 							<th scope="col">Burst Time</th>
-							<th scope="col">Priority</th>
+							<th scope="col" class="priorityColumnHeader">Priority</th>
 						</tr>
 					</thead>
 					<tbody>
 						<tr>
 							<td><input type="text" name="processId[]" aria-label="Process ID"></td>
-							<td><input type="number" name="arrivalTime[]" aria-label="Arrival Time"></td>
-							<td><input type="number" name="burstTime[]" aria-label="Burst Time"></td>
-							<td><input type="number" name="priority[]" aria-label="Priority"></td>
+							<td><input type="number" name="arrivalTime[]" aria-label="Arrival Time" placeholder="e.g. 0"></td>
+							<td><input type="number" name="burstTime[]" aria-label="Burst Time" placeholder="e.g. 5"></td>
+							<td class="priorityColumnCell"><input type="number" name="priority[]" aria-label="Priority" placeholder="e.g. 1"></td>
 						</tr>
 					</tbody>
 				</table>
@@ -45,19 +59,21 @@
 						<option value="SJF">SJF</option>
 						<option value="SRTF">SRTF</option>
 						<option value="Round Robin">Round Robin</option>
-						<option value="Priority">Priority</option>
+						<option value="Preemptive Priority">Preemptive Priority</option>
 					</select>
 
-					<label for="timeQuantum">Time Quantum:</label>
-					<input
-						id="timeQuantum"
-						type="number"
-						name="timeQuantum"
-						value="2"
-						min="1"
-						step="1"
-						aria-label="Time Quantum"
-					>
+					<div id="timeQuantumGroup">
+						<label for="timeQuantum">Time Quantum:</label>
+						<input
+							id="timeQuantum"
+							type="number"
+							name="timeQuantum"
+							value="2"
+							min="1"
+							step="1"
+							aria-label="Time Quantum"
+						>
+					</div>
 
 					<button id="runBtn" type="button">Run Simulation</button>
 				</div>

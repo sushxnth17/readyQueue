@@ -5,47 +5,74 @@
  */
 document.addEventListener('DOMContentLoaded', function () {
 	const addProcessBtn = document.getElementById('addProcessBtn');
+	const generateTableBtn = document.getElementById('generateTableBtn');
 	const runBtn = document.getElementById('runBtn');
+	const algorithmSelect = document.getElementById('algorithm');
 	
-	// Initialize first process with P1
-	initializeFirstProcess();
+	// Initialize table based on process count input
+	const processCountInput = document.getElementById('processCount');
+	const initialCount = Number(processCountInput ? processCountInput.value : 1);
+	generateProcessTable(Number.isFinite(initialCount) && initialCount > 0 ? initialCount : 1);
+	toggleAlgorithmSpecificInputs();
 	
 	addProcessBtn.addEventListener('click', addProcessRow);
+	generateTableBtn.addEventListener('click', handleGenerateTable);
+	algorithmSelect.addEventListener('change', toggleAlgorithmSpecificInputs);
 	runBtn.addEventListener('click', handleRunSimulation);
 });
 
 /**
- * Initialize the first process row with P1 as process ID
+ * Handle Generate Table button click
  */
-function initializeFirstProcess() {
-	const table = document.getElementById('processTable');
-	const firstRow = table.querySelector('tbody tr');
-	
-	if (firstRow) {
-		const firstProcessIdInput = firstRow.querySelector('input[name="processId[]"]');
-		if (firstProcessIdInput) {
-			firstProcessIdInput.value = 'P1';
-			firstProcessIdInput.readOnly = true;
-		}
+
+function handleGenerateTable() {
+	const processCountInput = document.getElementById('processCount');
+	const processCount = Number(processCountInput ? processCountInput.value : NaN);
+
+	if (!Number.isInteger(processCount) || processCount <= 0) {
+		console.warn('Please enter a valid Number of Processes (positive integer).');
+		return;
+	}
+
+	generateProcessTable(processCount);
+}
+
+/**
+ * Toggle Priority column and Time Quantum input visibility based on selected algorithm
+ */
+
+function toggleAlgorithmSpecificInputs() {
+	const algorithmSelect = document.getElementById('algorithm');
+	const selectedAlgorithm = algorithmSelect ? algorithmSelect.value : '';
+	const showPriority = selectedAlgorithm === 'Preemptive Priority';
+	const showTimeQuantum = selectedAlgorithm === 'Round Robin';
+
+	const priorityHeader = document.querySelector('.priorityColumnHeader');
+	if (priorityHeader) {
+		priorityHeader.style.display = showPriority ? 'table-cell' : 'none';
+	}
+
+	const priorityCells = document.querySelectorAll('.priorityColumnCell');
+	priorityCells.forEach((cell) => {
+		cell.style.display = showPriority ? 'table-cell' : 'none';
+	});
+
+	const timeQuantumGroup = document.getElementById('timeQuantumGroup');
+	if (timeQuantumGroup) {
+		timeQuantumGroup.style.display = showTimeQuantum ? 'flex' : 'none';
 	}
 }
 
 /**
- * Add a new row to the process table with empty input fields
- * Process IDs are auto-assigned as P1, P2, P3, etc.
+ * Create a process table row with auto-assigned process ID
+ * @param {number} processNumber - Process sequence number (1-based)
+ * @returns {HTMLTableRowElement} A process row element
  */
-function addProcessRow() {
-	const table = document.getElementById('processTable');
-	const tbody = table.querySelector('tbody');
-	
-	// Get the current row count to assign Process ID
-	const rowCount = tbody.rows.length + 1;
-	const processId = `P${rowCount}`;
-	
-	// Create a new table row
+function createProcessRow(processNumber) {
+	const processId = `P${processNumber}`;
+
 	const newRow = document.createElement('tr');
-	
-	// Create Process ID cell with non-editable input
+
 	const processIdCell = document.createElement('td');
 	const processIdInput = document.createElement('input');
 	processIdInput.type = 'text';
@@ -54,39 +81,66 @@ function addProcessRow() {
 	processIdInput.readOnly = true;
 	processIdInput.setAttribute('aria-label', 'Process ID');
 	processIdCell.appendChild(processIdInput);
-	
-	// Create Arrival Time cell
+
 	const arrivalTimeCell = document.createElement('td');
 	const arrivalTimeInput = document.createElement('input');
 	arrivalTimeInput.type = 'number';
 	arrivalTimeInput.name = 'arrivalTime[]';
+	arrivalTimeInput.placeholder = 'e.g. 0';
 	arrivalTimeInput.setAttribute('aria-label', 'Arrival Time');
 	arrivalTimeCell.appendChild(arrivalTimeInput);
-	
-	// Create Burst Time cell
+
 	const burstTimeCell = document.createElement('td');
 	const burstTimeInput = document.createElement('input');
 	burstTimeInput.type = 'number';
 	burstTimeInput.name = 'burstTime[]';
+	burstTimeInput.placeholder = 'e.g. 5';
 	burstTimeInput.setAttribute('aria-label', 'Burst Time');
 	burstTimeCell.appendChild(burstTimeInput);
-	
-	// Create Priority cell
+
 	const priorityCell = document.createElement('td');
+	priorityCell.className = 'priorityColumnCell';
 	const priorityInput = document.createElement('input');
 	priorityInput.type = 'number';
 	priorityInput.name = 'priority[]';
+	priorityInput.placeholder = 'e.g. 1';
 	priorityInput.setAttribute('aria-label', 'Priority');
 	priorityCell.appendChild(priorityInput);
-	
-	// Append all cells to the row
+
 	newRow.appendChild(processIdCell);
 	newRow.appendChild(arrivalTimeCell);
 	newRow.appendChild(burstTimeCell);
 	newRow.appendChild(priorityCell);
-	
-	// Append the new row to the table body
-	tbody.appendChild(newRow);
+
+	return newRow;
+}
+
+/**
+ * Regenerate process table body with exactly processCount rows
+ * @param {number} processCount - Number of process rows to create
+ */
+function generateProcessTable(processCount) {
+	const table = document.getElementById('processTable');
+	const tbody = table.querySelector('tbody');
+	tbody.innerHTML = '';
+
+	for (let rowNumber = 1; rowNumber <= processCount; rowNumber += 1) {
+		tbody.appendChild(createProcessRow(rowNumber));
+	}
+
+	toggleAlgorithmSpecificInputs();
+}
+
+/**
+ * Add a new row to the process table with auto-assigned process ID
+ * Keeps manual add as optional enhancement
+ */
+function addProcessRow() {
+	const table = document.getElementById('processTable');
+	const tbody = table.querySelector('tbody');
+	const nextProcessNumber = tbody.rows.length + 1;
+	tbody.appendChild(createProcessRow(nextProcessNumber));
+	toggleAlgorithmSpecificInputs();
 }
 
 /**
@@ -134,7 +188,7 @@ function handleRunSimulation() {
 		result = roundRobinScheduling(processData, timeQuantum);
 		console.log(`Round Robin Scheduling Results (q=${timeQuantum}):`, result.results);
 		console.log('Round Robin Execution Timeline:', result.timeline);
-	} else if (selectedAlgorithm === 'Priority') {
+	} else if (selectedAlgorithm === 'Preemptive Priority') {
 		result = priorityScheduling(processData);
 		console.log('Priority Scheduling Results:', result.results);
 		console.log('Priority Execution Timeline:', result.timeline);
@@ -156,6 +210,9 @@ function extractProcessData() {
 	const tbody = table.querySelector('tbody');
 	const rows = tbody.querySelectorAll('tr');
 	const processData = [];
+	const algorithmSelect = document.getElementById('algorithm');
+	const selectedAlgorithm = algorithmSelect ? algorithmSelect.value : '';
+	const requiresPriority = selectedAlgorithm === 'Preemptive Priority';
 	
 	rows.forEach((row) => {
 		// Get all input elements in the row
@@ -167,18 +224,22 @@ function extractProcessData() {
 		const burstStr = inputs[2].value.trim();
 		const priorityStr = inputs[3].value.trim();
 		
-		// Skip rows where critical fields are empty
-		if (!id || !arrivalStr || !burstStr || !priorityStr) {
+		// Skip rows where required fields are empty
+		if (!id || !arrivalStr || !burstStr) {
+			return;
+		}
+
+		if (requiresPriority && !priorityStr) {
 			return;
 		}
 		
 		// Convert numeric strings to numbers
 		const arrival = parseFloat(arrivalStr);
 		const burst = parseFloat(burstStr);
-		const priority = parseFloat(priorityStr);
+		const priority = priorityStr ? parseFloat(priorityStr) : 0;
 		
 		// Validate numeric conversions
-		if (isNaN(arrival) || isNaN(burst) || isNaN(priority)) {
+		if (isNaN(arrival) || isNaN(burst) || (requiresPriority && isNaN(priority))) {
 			console.warn(`Skipping invalid row: ${id}`);
 			return;
 		}
