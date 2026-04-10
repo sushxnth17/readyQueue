@@ -175,7 +175,7 @@ async function handleRunSimulation() {
 	}
 
 	try {
-		const response = await fetch('http://127.0.0.1:5000/schedule', {
+		const response = await fetch('/schedule', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'

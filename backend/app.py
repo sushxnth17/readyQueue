@@ -1,7 +1,7 @@
 import os
 import sys
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 # Support running both as `python backend/app.py` and `python -m backend.app`.
 if __package__ is None or __package__ == "":
@@ -11,7 +11,10 @@ from backend.algorithms import schedule
 from backend.flask_cors import CORS
 
 
-app = Flask(__name__)
+BACKEND_DIR = os.path.dirname(__file__)
+FRONTEND_DIR = os.path.abspath(os.path.join(BACKEND_DIR, "..", "frontend"))
+
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 CORS(app)
 
 
@@ -57,9 +60,22 @@ def schedule_processes():
 		return jsonify({"error": str(error)}), 400
 
 
-@app.route("/", methods=["GET"])
+@app.route("/health", methods=["GET"])
 def health_check():
 	return jsonify({"status": "ok"}), 200
+
+
+@app.route("/", methods=["GET"])
+def serve_index():
+	return send_from_directory(FRONTEND_DIR, "index.html")
+
+
+@app.route("/<path:path>", methods=["GET"])
+def serve_frontend_assets(path):
+	asset_path = os.path.join(FRONTEND_DIR, path)
+	if os.path.isfile(asset_path):
+		return send_from_directory(FRONTEND_DIR, path)
+	return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 if __name__ == "__main__":
