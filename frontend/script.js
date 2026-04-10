@@ -145,9 +145,9 @@ function addProcessRow() {
 
 /**
  * Handle the Run Simulation button click
- * Extracts process data and logs it to the console
+ * Sends process data to the Flask backend and renders the returned timeline
  */
-function handleRunSimulation() {
+async function handleRunSimulation() {
 	const processData = extractProcessData();
 	
 	if (processData.length === 0) {
@@ -155,28 +155,14 @@ function handleRunSimulation() {
 		return;
 	}
 	
-	console.log('Process Data Extracted:', processData);
-	
-	// Get selected algorithm
 	const algorithmSelect = document.getElementById('algorithm');
-	const selectedAlgorithm = algorithmSelect.value;
-	
-	let result;
-	
-	// Perform scheduling based on selected algorithm
-	if (selectedAlgorithm === 'FCFS') {
-		result = fcfsScheduling(processData);
-		console.log('FCFS Scheduling Results:', result.results);
-		console.log('FCFS Execution Timeline:', result.timeline);
-	} else if (selectedAlgorithm === 'SJF') {
-		result = sjfScheduling(processData);
-		console.log('SJF Scheduling Results:', result.results);
-		console.log('SJF Execution Timeline:', result.timeline);
-	} else if (selectedAlgorithm === 'SRTF') {
-		result = srtfScheduling(processData);
-		console.log('SRTF Scheduling Results:', result.results);
-		console.log('SRTF Execution Timeline:', result.timeline);
-	} else if (selectedAlgorithm === 'Round Robin') {
+	const selectedAlgorithm = algorithmSelect ? algorithmSelect.value : '';
+	const payload = {
+		processes: processData,
+		algorithm: selectedAlgorithm,
+	};
+
+	if (selectedAlgorithm === 'Round Robin') {
 		const timeQuantumInput = document.getElementById('timeQuantum');
 		const timeQuantum = Number(timeQuantumInput ? timeQuantumInput.value : NaN);
 
@@ -185,20 +171,32 @@ function handleRunSimulation() {
 			return;
 		}
 
-		result = roundRobinScheduling(processData, timeQuantum);
-		console.log(`Round Robin Scheduling Results (q=${timeQuantum}):`, result.results);
-		console.log('Round Robin Execution Timeline:', result.timeline);
-	} else if (selectedAlgorithm === 'Preemptive Priority') {
-		result = priorityScheduling(processData);
-		console.log('Priority Scheduling Results:', result.results);
-		console.log('Priority Execution Timeline:', result.timeline);
-	} else {
-		console.log(`${selectedAlgorithm} scheduling algorithm not implemented yet.`);
+		payload.quantum = timeQuantum;
+	}
+
+	try {
+		const response = await fetch('http://127.0.0.1:5000/schedule', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(payload)
+		});
+
+		const data = await response.json();
+
+		if (!response.ok) {
+			throw new Error(data.error || 'Failed to schedule processes.');
+		}
+
+		console.log('Scheduling Results:', data.results);
+		console.log('Execution Timeline:', data.timeline);
+
+		await renderGanttChart(data.timeline);
+	} catch (error) {
+		console.error('Simulation failed:', error);
 		return;
 	}
-		
-	// Render the Gantt chart
-	renderGanttChart(result.timeline);
 }
 
 /**
@@ -256,395 +254,6 @@ function extractProcessData() {
 	});
 	
 	return processData;
-}
-
-/**
- * Perform FCFS (First Come First Serve) scheduling
- * @param {Array} processes - Array of process objects with id, arrival, burst
- * @returns {Object} Object with results array and timeline array
- */
-function fcfsScheduling(processes) {
-	// Create a copy of processes to avoid modifying original array
-	const scheduledProcesses = JSON.parse(JSON.stringify(processes));
-	
-	// Sort processes by arrival time
-	scheduledProcesses.sort((a, b) => a.arrival - b.arrival);
-	
-	let currentTime = 0;
-	const timeline = [];
-	
-	// Calculate completion time, turnaround time, waiting time, and timeline
-	scheduledProcesses.forEach((process) => {
-		let startTime;
-		
-		// If CPU is idle before process arrives, move to arrival time
-		if (currentTime < process.arrival) {
-			currentTime = process.arrival;
-			startTime = process.arrival;
-		} else {
-			startTime = currentTime;
-		}
-		
-		// Add burst time to get completion time
-		currentTime += process.burst;
-		const endTime = currentTime;
-		
-		// Add timing data to process object
-		process.startTime = startTime;
-		process.completionTime = endTime;
-		
-		// TAT = CT - Arrival Time
-		process.turnaroundTime = process.completionTime - process.arrival;
-		
-		// WT = TAT - Burst Time
-		process.waitingTime = process.turnaroundTime - process.burst;
-		
-		// Add to timeline
-		timeline.push({
-			id: process.id,
-			start: startTime,
-			end: endTime
-		});
-	});
-	
-	// Return both results and timeline
-	return {
-		results: scheduledProcesses,
-		timeline: timeline
-	};
-}
-
-/**
- * Perform SJF (Shortest Job First) Non-Preemptive scheduling
- * @param {Array} processes - Array of process objects with id, arrival, burst
- * @returns {Object} Object with results array and timeline array
- */
-function sjfScheduling(processes) {
-	// Create a copy of processes to avoid modifying original array
-	const pendingProcesses = JSON.parse(JSON.stringify(processes));
-
-	// Sort by arrival to make ready-queue intake efficient
-	pendingProcesses.sort((a, b) => a.arrival - b.arrival);
-
-	let currentTime = 0;
-	let nextArrivalIndex = 0;
-	const readyQueue = [];
-	const completedProcesses = [];
-	const timeline = [];
-
-	while (completedProcesses.length < pendingProcesses.length) {
-		// Add all processes that have arrived by currentTime to the ready queue
-		while (
-			nextArrivalIndex < pendingProcesses.length &&
-			pendingProcesses[nextArrivalIndex].arrival <= currentTime
-		) {
-			readyQueue.push(pendingProcesses[nextArrivalIndex]);
-			nextArrivalIndex += 1;
-		}
-
-		// If no process is ready, CPU stays idle for 1 unit
-		if (readyQueue.length === 0) {
-			currentTime += 1;
-			continue;
-		}
-
-		// Pick process with smallest burst time (stable tie-breaks for determinism)
-		readyQueue.sort((a, b) => {
-			if (a.burst !== b.burst) return a.burst - b.burst;
-			if (a.arrival !== b.arrival) return a.arrival - b.arrival;
-			return a.id.localeCompare(b.id);
-		});
-
-		const selectedProcess = readyQueue.shift();
-		const startTime = currentTime;
-		const endTime = currentTime + selectedProcess.burst;
-
-		selectedProcess.startTime = startTime;
-		selectedProcess.completionTime = endTime;
-		selectedProcess.turnaroundTime = selectedProcess.completionTime - selectedProcess.arrival;
-		selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
-
-		timeline.push({
-			id: selectedProcess.id,
-			start: startTime,
-			end: endTime
-		});
-
-		completedProcesses.push(selectedProcess);
-		currentTime = endTime;
-	}
-
-	return {
-		results: completedProcesses,
-		timeline: timeline
-	};
-}
-
-/**
- * Perform SRTF (Shortest Remaining Time First) Preemptive scheduling
- * @param {Array} processes - Array of process objects with id, arrival, burst
- * @returns {Object} Object with results array and timeline array
- */
-function srtfScheduling(processes) {
-	// Create a copy so original data remains unchanged
-	const scheduledProcesses = JSON.parse(JSON.stringify(processes)).map((process) => ({
-		...process,
-		remainingTime: process.burst
-	}));
-
-	let currentTime = 0;
-	let completedCount = 0;
-	const timeline = [];
-
-	while (completedCount < scheduledProcesses.length) {
-		// Get all arrived and unfinished processes
-		const availableProcesses = scheduledProcesses.filter(
-			(process) => process.arrival <= currentTime && process.remainingTime > 0
-		);
-
-		// If no process is ready, CPU remains idle for one time unit
-		if (availableProcesses.length === 0) {
-			currentTime += 1;
-			continue;
-		}
-
-		// Select process with shortest remaining time
-		availableProcesses.sort((a, b) => {
-			if (a.remainingTime !== b.remainingTime) return a.remainingTime - b.remainingTime;
-			if (a.arrival !== b.arrival) return a.arrival - b.arrival;
-			return a.id.localeCompare(b.id);
-		});
-
-		const selectedProcess = availableProcesses[0];
-		const startTime = currentTime;
-		const endTime = currentTime + 1;
-
-		// Merge with previous segment if the same process continues execution
-		const lastSegment = timeline[timeline.length - 1];
-		if (lastSegment && lastSegment.id === selectedProcess.id && lastSegment.end === startTime) {
-			lastSegment.end = endTime;
-		} else {
-			timeline.push({
-				id: selectedProcess.id,
-				start: startTime,
-				end: endTime
-			});
-		}
-
-		// Execute for one unit and advance time
-		selectedProcess.remainingTime -= 1;
-		currentTime += 1;
-
-		// If process just finished, calculate completion metrics
-		if (selectedProcess.remainingTime === 0) {
-			selectedProcess.completionTime = currentTime;
-			selectedProcess.turnaroundTime = selectedProcess.completionTime - selectedProcess.arrival;
-			selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
-			completedCount += 1;
-		}
-	}
-
-	return {
-		results: scheduledProcesses,
-		timeline: timeline
-	};
-}
-
-/**
- * Perform Priority (Preemptive) scheduling
- * Lower priority value means higher priority
- * @param {Array} processes - Array of process objects with id, arrival, burst, priority
- * @returns {Object} Object with results array and timeline array
- */
-function priorityScheduling(processes) {
-	// Create a copy so original data remains unchanged
-	const scheduledProcesses = JSON.parse(JSON.stringify(processes)).map((process) => ({
-		...process,
-		remainingTime: process.burst
-	}));
-
-	let currentTime = 0;
-	let completedCount = 0;
-	const timeline = [];
-
-	function addTimelineSegment(id, start, end) {
-		const lastSegment = timeline[timeline.length - 1];
-		if (lastSegment && lastSegment.id === id && lastSegment.end === start) {
-			lastSegment.end = end;
-		} else {
-			timeline.push({
-				id: id,
-				start: start,
-				end: end
-			});
-		}
-	}
-
-	while (completedCount < scheduledProcesses.length) {
-		// Get all arrived and unfinished processes
-		const availableProcesses = scheduledProcesses.filter(
-			(process) => process.arrival <= currentTime && process.remainingTime > 0
-		);
-
-		// If no process is ready, CPU remains idle for one time unit
-		if (availableProcesses.length === 0) {
-			addTimelineSegment('IDLE', currentTime, currentTime + 1);
-			currentTime += 1;
-			continue;
-		}
-
-		// Deterministic tie-breaking at each time unit
-		const selectedProcess = availableProcesses.reduce((best, curr) => {
-			if (!best) return curr;
-
-			if (curr.priority < best.priority) return curr;
-
-			if (curr.priority === best.priority) {
-				if (curr.remainingTime < best.remainingTime) return curr;
-
-				if (curr.remainingTime === best.remainingTime) {
-					if (curr.arrival < best.arrival) return curr;
-
-					if (curr.arrival === best.arrival) {
-						if (curr.id.localeCompare(best.id) < 0) return curr;
-					}
-				}
-			}
-
-			return best;
-		}, null);
-
-		addTimelineSegment(selectedProcess.id, currentTime, currentTime + 1);
-
-		// Execute for one unit and advance time
-		selectedProcess.remainingTime -= 1;
-
-		// If process just finished, calculate completion metrics
-		if (selectedProcess.remainingTime === 0) {
-			selectedProcess.completionTime = currentTime + 1;
-			selectedProcess.turnaroundTime = selectedProcess.completionTime - selectedProcess.arrival;
-			selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
-			completedCount += 1;
-		}
-
-		currentTime += 1;
-	}
-
-	return {
-		results: scheduledProcesses,
-		timeline: timeline
-	};
-}
-
-/**
- * Perform Round Robin scheduling
- * @param {Array} processes - Array of process objects with id, arrival, burst
- * @param {number} quantum - Time quantum for each CPU slice
- * @returns {Object} Object with results array and timeline array
- */
-function roundRobinScheduling(processes, quantum) {
-	const timeQuantum = Number(quantum);
-
-	if (!Number.isFinite(timeQuantum) || timeQuantum <= 0) {
-		throw new Error('Time quantum must be a positive number.');
-	}
-
-	// Clone input and initialize execution metadata
-	const scheduledProcesses = JSON.parse(JSON.stringify(processes)).map((process) => ({
-		...process,
-		remainingTime: process.burst,
-		completionTime: null,
-		turnaroundTime: null,
-		waitingTime: null,
-		inQueue: false
-	}));
-
-	// Sort by arrival to efficiently intake newly arrived processes
-	scheduledProcesses.sort((a, b) => {
-		if (a.arrival !== b.arrival) return a.arrival - b.arrival;
-		return a.id.localeCompare(b.id);
-	});
-
-	let currentTime = 0;
-	let nextArrivalIndex = 0;
-	let completedCount = 0;
-	const queue = [];
-	const timeline = [];
-
-	function addArrivedProcesses(upToTime) {
-		while (
-			nextArrivalIndex < scheduledProcesses.length &&
-			scheduledProcesses[nextArrivalIndex].arrival <= upToTime
-		) {
-			const arrivedProcess = scheduledProcesses[nextArrivalIndex];
-			if (arrivedProcess.remainingTime > 0 && !arrivedProcess.inQueue) {
-				queue.push(arrivedProcess);
-				arrivedProcess.inQueue = true;
-			}
-			nextArrivalIndex += 1;
-		}
-	}
-
-	function addTimelineSegment(id, start, end) {
-		const lastSegment = timeline[timeline.length - 1];
-		if (lastSegment && lastSegment.id === id && lastSegment.end === start) {
-			lastSegment.end = end;
-			return;
-		}
-
-		timeline.push({
-			id: id,
-			start: start,
-			end: end
-		});
-	}
-
-	while (completedCount < scheduledProcesses.length) {
-		addArrivedProcesses(currentTime);
-
-		if (queue.length === 0) {
-			if (nextArrivalIndex < scheduledProcesses.length) {
-				currentTime = Math.max(currentTime, scheduledProcesses[nextArrivalIndex].arrival);
-				addArrivedProcesses(currentTime);
-			}
-			continue;
-		}
-
-		const selectedProcess = queue.shift();
-		selectedProcess.inQueue = false;
-
-		const startTime = currentTime;
-		const runTime = Math.min(timeQuantum, selectedProcess.remainingTime);
-		const endTime = startTime + runTime;
-
-		addTimelineSegment(selectedProcess.id, startTime, endTime);
-
-		currentTime = endTime;
-		selectedProcess.remainingTime -= runTime;
-
-		// Newly arrived processes join the queue during this execution slice
-		addArrivedProcesses(currentTime);
-
-		if (selectedProcess.remainingTime > 0) {
-			queue.push(selectedProcess);
-			selectedProcess.inQueue = true;
-		} else {
-			selectedProcess.completionTime = currentTime;
-			selectedProcess.turnaroundTime = selectedProcess.completionTime - selectedProcess.arrival;
-			selectedProcess.waitingTime = selectedProcess.turnaroundTime - selectedProcess.burst;
-			completedCount += 1;
-		}
-	}
-
-	// Remove internal helper flag from final results
-	scheduledProcesses.forEach((process) => {
-		delete process.inQueue;
-	});
-
-	return {
-		results: scheduledProcesses,
-		timeline: timeline
-	};
 }
 
 /**
