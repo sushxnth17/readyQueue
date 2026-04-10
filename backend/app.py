@@ -1,4 +1,11 @@
+import os
+import sys
+
 from flask import Flask, jsonify, request
+
+# Support running both as `python backend/app.py` and `python -m backend.app`.
+if __package__ is None or __package__ == "":
+	sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from backend.algorithms import schedule
 from backend.flask_cors import CORS
