@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	const generateTableBtn = document.getElementById('generateTableBtn');
 	const runBtn = document.getElementById('runBtn');
 	const algorithmSelect = document.getElementById('algorithm');
+	disableNumberInputScroll();
 	
 	// Initialize table based on process count input
 	const processCountInput = document.getElementById('processCount');
@@ -20,6 +21,31 @@ document.addEventListener('DOMContentLoaded', function () {
 	algorithmSelect.addEventListener('change', toggleAlgorithmSpecificInputs);
 	runBtn.addEventListener('click', handleRunSimulation);
 });
+
+let numberInputScrollDisabled = false;
+
+/**
+ * Disable wheel-based value changes on number inputs while preserving typing and keyboard arrows.
+ * Uses delegation so dynamically created inputs are automatically covered.
+ */
+function disableNumberInputScroll() {
+	if (numberInputScrollDisabled) {
+		return;
+	}
+
+	document.addEventListener('wheel', function (event) {
+		const target = event.target;
+		if (!(target instanceof HTMLInputElement) || target.type !== 'number') {
+			return;
+		}
+
+		if (document.activeElement === target) {
+			target.blur();
+		}
+	}, { passive: true });
+
+	numberInputScrollDisabled = true;
+}
 
 /**
  * Handle Generate Table button click
@@ -128,6 +154,7 @@ function generateProcessTable(processCount) {
 		tbody.appendChild(createProcessRow(rowNumber));
 	}
 
+	disableNumberInputScroll();
 	toggleAlgorithmSpecificInputs();
 }
 
@@ -140,6 +167,7 @@ function addProcessRow() {
 	const tbody = table.querySelector('tbody');
 	const nextProcessNumber = tbody.rows.length + 1;
 	tbody.appendChild(createProcessRow(nextProcessNumber));
+	disableNumberInputScroll();
 	toggleAlgorithmSpecificInputs();
 }
 
