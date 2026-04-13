@@ -1,85 +1,76 @@
 from collections import deque
 
-from .common import clone_processes
+from .common import add_timeline_segment, clone_processes
 
 
-def rr(processes, quantum=1):
-    if quantum is None:
-        quantum = 1
+def rr(processes, quantum):
+	if isinstance(quantum, bool):
+		raise ValueError("'quantum' must be a positive integer")
 
-    time_quantum = float(quantum)
-    if time_quantum <= 0:
-        raise ValueError("Time quantum must be a positive number.")
+	if isinstance(quantum, float) and not quantum.is_integer():
+		raise ValueError("'quantum' must be a positive integer")
 
-    scheduled_processes = clone_processes(processes)
-    for process in scheduled_processes:
-        process["remainingTime"] = process["burst"]
-        process["completionTime"] = None
-        process["turnaroundTime"] = None
-        process["waitingTime"] = None
-        process["inQueue"] = False
+	try:
+		time_quantum = int(quantum)
+	except (TypeError, ValueError):
+		raise ValueError("'quantum' must be a positive integer") from None
 
-    scheduled_processes.sort(key=lambda item: (item["arrival"], item["id"]))
+	if time_quantum <= 0:
+		raise ValueError("'quantum' must be a positive integer")
 
-    queue = deque()
-    timeline = []
-    time = 0
-    next_arrival_index = 0
-    completed = 0
+	scheduled_processes = clone_processes(processes)
+	for process in scheduled_processes:
+		process["remainingTime"] = process["burst"]
 
-    def add_arrived_processes(up_to_time):
-        nonlocal next_arrival_index
-        while next_arrival_index < len(scheduled_processes) and scheduled_processes[next_arrival_index]["arrival"] <= up_to_time:
-            arrived_process = scheduled_processes[next_arrival_index]
-            if arrived_process["remainingTime"] > 0 and not arrived_process["inQueue"]:
-                queue.append(arrived_process)
-                arrived_process["inQueue"] = True
-            next_arrival_index += 1
+	scheduled_processes.sort(key=lambda item: (item["arrival"], item["id"]))
 
-    def add_timeline_segment(process_id, start, end):
-        last_segment = timeline[-1] if timeline else None
-        if last_segment and last_segment["id"] == process_id and last_segment["end"] == start:
-            last_segment["end"] = end
-            return
+	timeline = []
+	ready_queue = deque()
+	current_time = 0
+	next_arrival_index = 0
+	completed_count = 0
+	total_processes = len(scheduled_processes)
 
-        timeline.append({"id": process_id, "start": start, "end": end})
+	while completed_count < total_processes:
+		while (
+			next_arrival_index < total_processes
+			and scheduled_processes[next_arrival_index]["arrival"] <= current_time
+		):
+			ready_queue.append(scheduled_processes[next_arrival_index])
+			next_arrival_index += 1
 
-    while completed < len(scheduled_processes):
-        add_arrived_processes(time)
+		if not ready_queue:
+			if next_arrival_index < total_processes:
+				current_time = max(current_time, scheduled_processes[next_arrival_index]["arrival"])
+				continue
+			break
 
-        if len(queue) == 0:
-            if next_arrival_index < len(scheduled_processes):
-                time = max(time, scheduled_processes[next_arrival_index]["arrival"])
-                add_arrived_processes(time)
-            continue
+		current_process = ready_queue.popleft()
+		run_time = min(time_quantum, current_process["remainingTime"])
+		start_time = current_time
+		end_time = current_time + run_time
 
-        selected_process = queue.popleft()
-        selected_process["inQueue"] = False
+		add_timeline_segment(timeline, current_process["id"], start_time, end_time)
 
-        start_time = time
-        run_time = min(time_quantum, selected_process["remainingTime"])
-        end_time = start_time + run_time
+		current_time = end_time
+		current_process["remainingTime"] -= run_time
 
-        add_timeline_segment(selected_process["id"], start_time, end_time)
+		while (
+			next_arrival_index < total_processes
+			and scheduled_processes[next_arrival_index]["arrival"] <= current_time
+		):
+			ready_queue.append(scheduled_processes[next_arrival_index])
+			next_arrival_index += 1
 
-        time = end_time
-        selected_process["remainingTime"] -= run_time
+		if current_process["remainingTime"] > 0:
+			ready_queue.append(current_process)
+		else:
+			current_process["completionTime"] = current_time
+			current_process["turnaroundTime"] = current_process["completionTime"] - current_process["arrival"]
+			current_process["waitingTime"] = current_process["turnaroundTime"] - current_process["burst"]
+			completed_count += 1
 
-        add_arrived_processes(time)
-
-        if selected_process["remainingTime"] > 0:
-            queue.append(selected_process)
-            selected_process["inQueue"] = True
-        else:
-            selected_process["completionTime"] = time
-            selected_process["turnaroundTime"] = selected_process["completionTime"] - selected_process["arrival"]
-            selected_process["waitingTime"] = selected_process["turnaroundTime"] - selected_process["burst"]
-            completed += 1
-
-    for process in scheduled_processes:
-        del process["inQueue"]
-
-    return {
-        "results": scheduled_processes,
-        "timeline": timeline,
-    }
+	return {
+		"results": scheduled_processes,
+		"timeline": timeline,
+	}

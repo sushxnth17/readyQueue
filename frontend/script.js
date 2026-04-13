@@ -263,114 +263,84 @@ function extractProcessData() {
 async function renderGanttChart(timeline) {
 	const ganttChart = document.getElementById('ganttChart');
 	const ganttSection = document.getElementById('ganttSection');
-	
-	// Clear previous content
+
 	ganttChart.innerHTML = '';
-	
+
 	if (!timeline || timeline.length === 0) {
 		ganttChart.innerHTML = '<p>No timeline data available.</p>';
 		return;
 	}
-	
-	const SCALE = 50; // 50px per unit time
-	const MS_PER_UNIT = 320; // Single source of truth for animation speed
-	const MIN_SEGMENT_MS = 220; // Keeps tiny segments visible
-	
-	// Create timeline container
+
+	const SCALE = 50;
+	const MS_PER_UNIT = 320;
+
 	const timelineDiv = document.createElement('div');
 	timelineDiv.className = 'ganttTimeline';
-	
-	// Create blocks container
+
 	const blocksContainer = document.createElement('div');
 	blocksContainer.className = 'ganttBlocksContainer';
-	
-	// Find max time for time scale
+
 	const maxTime = Math.max(...timeline.map(t => t.end));
 	const totalWidth = maxTime * SCALE;
 	blocksContainer.style.width = totalWidth + 'px';
-	
-	// Show the gantt section immediately
+
 	ganttSection.style.display = 'block';
 	ganttChart.appendChild(timelineDiv);
 	timelineDiv.appendChild(blocksContainer);
-	
-	// Create time scale with markers (appears immediately)
+
+	// ✅ CREATE ALL BLOCKS AT ONCE (CRITICAL FIX)
+	timeline.forEach((segment, index) => {
+		const block = document.createElement('div');
+
+		const duration = segment.end - segment.start;
+		const width = duration * SCALE;
+		const left = segment.start * SCALE;
+
+		block.className = `ganttBlock color-${index % 8}`;
+		block.textContent = segment.id;
+
+		block.style.position = 'absolute';
+		block.style.left = left + 'px';
+		block.style.width = '0px';
+
+		block.setAttribute('data-start', segment.start);
+		block.setAttribute('data-end', segment.end);
+
+		blocksContainer.appendChild(block);
+
+		// Animate width
+		setTimeout(() => {
+			block.style.width = width + 'px';
+			block.style.transition = `width ${duration * MS_PER_UNIT}ms linear`;
+		}, 50);
+	});
+
+	// Time scale (same as yours)
 	const timeScale = document.createElement('div');
 	timeScale.className = 'ganttTimeScale';
 	timeScale.style.width = totalWidth + 'px';
-	
-	// Collect all unique time points (block boundaries)
+
 	const timePoints = new Set();
 	timeline.forEach(t => {
 		timePoints.add(t.start);
 		timePoints.add(t.end);
 	});
-	const sortedTimes = Array.from(timePoints).sort((a, b) => a - b);
-	
-	// Create markers at each time point (visible from start)
-	sortedTimes.forEach((time) => {
+
+	Array.from(timePoints).sort((a, b) => a - b).forEach(time => {
 		const marker = document.createElement('div');
 		marker.className = 'ganttTimeMarker';
 		marker.textContent = time;
-		marker.setAttribute('data-time', String(time));
 		marker.style.left = (time * SCALE) + 'px';
-		marker.style.opacity = '0.6';
-		
 		timeScale.appendChild(marker);
 	});
-	
+
 	timelineDiv.appendChild(timeScale);
-	
-	// Start cursor animation immediately (in parallel with blocks)
-	const cursorPromise = animateTimeCursor(timeline, {
+
+	// Cursor animation stays same
+	animateTimeCursor(timeline, {
 		scale: SCALE,
 		msPerUnit: MS_PER_UNIT
 	});
-	
-	// Animate blocks one by one in sync with cursor
-	for (let index = 0; index < timeline.length; index++) {
-		const processTimeline = timeline[index];
-		
-		// Create block element
-		const block = document.createElement('div');
-		block.className = `ganttBlock color-${index % 8}`;
-		
-		// Calculate dimensions
-		const duration = processTimeline.end - processTimeline.start;
-		const blockWidth = duration * SCALE;
-		
-		// Use the same simulation clock as the cursor for perfect sync
-		const animationDurationMs = Math.max(duration * MS_PER_UNIT, MIN_SEGMENT_MS);
-		const animationDuration = animationDurationMs / 1000;
-		
-		// Set styles
-		block.style.width = '0px'; // Start with 0 width
-		block.style.minWidth = blockWidth + 'px';
-		block.textContent = processTimeline.id;
-		block.title = `${processTimeline.id}: Time ${processTimeline.start} - ${processTimeline.end} (Duration: ${duration} units)`;
-		block.setAttribute('data-start', processTimeline.start);
-		block.setAttribute('data-end', processTimeline.end);
-		block.setAttribute('data-duration', duration);
-		
-		// Append block to container
-		blocksContainer.appendChild(block);
-		
-		// Trigger animation after a frame to ensure CSS transitions apply
-		await new Promise(resolve => requestAnimationFrame(resolve));
-		
-		// Apply animation
-		block.classList.add('animate', 'pulse');
-		block.style.setProperty('--animation-duration', animationDuration);
-		block.style.animation = `ganttBlockGrow ${animationDuration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards, ganttBlockPulse 0.8s ease-out ${animationDuration}s`;
-		block.style.width = blockWidth + 'px';
-		block.style.transition = `width ${animationDuration}s cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
-		
-		// Wait for this block's animation to complete before adding next block
-		await new Promise(resolve => setTimeout(resolve, animationDurationMs));
-	}
-	
-	// Wait for cursor to finish
-	await cursorPromise;
 }
 
 /**

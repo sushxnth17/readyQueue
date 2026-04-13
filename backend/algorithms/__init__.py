@@ -22,6 +22,6 @@ def schedule(processes, algorithm, quantum=None):
         raise ValueError(f"Unsupported algorithm: {algorithm}")
 
     scheduler = ALGORITHMS[algorithm_name]
-    if algorithm_name == "RR":
+    if scheduler is rr:
         return scheduler(processes, quantum=quantum)
     return scheduler(processes)
