@@ -221,10 +221,99 @@ async function handleRunSimulation() {
 		console.log('Execution Timeline:', data.timeline);
 
 		await renderGanttChart(data.timeline);
+		renderResultsTable(data.results);
 	} catch (error) {
 		console.error('Simulation failed:', error);
 		return;
 	}
+}
+
+/**
+ * Render the scheduling results table and average metrics.
+ * @param {Array} results - Array of process result objects from the backend
+ */
+function renderResultsTable(results) {
+	const resultsSection = document.getElementById('resultsSection');
+	if (!resultsSection) {
+		return;
+	}
+
+	resultsSection.innerHTML = '';
+	resultsSection.style.display = 'block';
+
+	const heading = document.createElement('h2');
+	heading.id = 'results-heading';
+	heading.textContent = 'Scheduling Results';
+	resultsSection.appendChild(heading);
+
+	if (!results || results.length === 0) {
+		const emptyMessage = document.createElement('p');
+		emptyMessage.textContent = 'No results available.';
+		resultsSection.appendChild(emptyMessage);
+		return;
+	}
+
+	const table = document.createElement('table');
+	table.className = 'resultsTable';
+
+	const thead = document.createElement('thead');
+	const headerRow = document.createElement('tr');
+	['Process ID', 'Arrival Time', 'Burst Time', 'Completion Time', 'Turnaround Time', 'Waiting Time'].forEach((columnName) => {
+		const th = document.createElement('th');
+		th.scope = 'col';
+		th.textContent = columnName;
+		headerRow.appendChild(th);
+	});
+	thead.appendChild(headerRow);
+	table.appendChild(thead);
+
+	const tbody = document.createElement('tbody');
+	let totalTurnaroundTime = 0;
+	let totalWaitingTime = 0;
+
+	results.forEach((result) => {
+		const row = document.createElement('tr');
+		const cells = [
+			result.id,
+			result.arrival,
+			result.burst,
+			result.completionTime,
+			result.turnaroundTime,
+			result.waitingTime,
+		];
+
+		cells.forEach((value) => {
+			const cell = document.createElement('td');
+			cell.textContent = value;
+			row.appendChild(cell);
+		});
+
+		totalTurnaroundTime += Number(result.turnaroundTime) || 0;
+		totalWaitingTime += Number(result.waitingTime) || 0;
+		tbody.appendChild(row);
+	});
+
+	table.appendChild(tbody);
+	resultsSection.appendChild(table);
+
+	const averageContainer = document.createElement('div');
+	averageContainer.className = 'resultsAverages';
+
+	const averageTurnaroundTime = totalTurnaroundTime / results.length;
+	const averageWaitingTime = totalWaitingTime / results.length;
+
+	averageContainer.innerHTML = `
+		<div class="averageCard">
+			<span class="averageLabel">Average Turnaround Time</span>
+			<span class="averageValue">${averageTurnaroundTime.toFixed(2)}</span>
+		</div>
+		<div class="averageCard">
+			<span class="averageLabel">Average Waiting Time</span>
+			<span class="averageValue">${averageWaitingTime.toFixed(2)}</span>
+		</div>
+	`;
+
+	resultsSection.appendChild(averageContainer);
 }
 
 /**
