@@ -2,6 +2,10 @@ from .common import clone_processes
 
 
 def priority(processes):
+    def selection_rank(process):
+        # Lower tuple value means higher scheduling priority.
+        return (process["priority"], process["arrival"], process["id"])
+
     scheduled_processes = clone_processes(processes)
     for process in scheduled_processes:
         process["remainingTime"] = process["burst"]
@@ -9,6 +13,7 @@ def priority(processes):
     timeline = []
     time = 0
     completed = 0
+    current_process = None
 
     def add_timeline_segment(process_id, start, end):
         last_segment = timeline[-1] if timeline else None
@@ -24,35 +29,25 @@ def priority(processes):
 
         if len(available_processes) == 0:
             time += 1
+            current_process = None
             continue
 
-        selected_process = available_processes[0]
-        for candidate in available_processes[1:]:
-            if candidate["priority"] < selected_process["priority"]:
-                selected_process = candidate
-                continue
+        selected_process = min(available_processes, key=selection_rank)
 
-            if candidate["priority"] == selected_process["priority"]:
-                if candidate["remainingTime"] < selected_process["remainingTime"]:
-                    selected_process = candidate
-                    continue
-
-                if candidate["remainingTime"] == selected_process["remainingTime"]:
-                    if candidate["arrival"] < selected_process["arrival"]:
-                        selected_process = candidate
-                        continue
-
-                    if candidate["arrival"] == selected_process["arrival"] and candidate["id"] < selected_process["id"]:
-                        selected_process = candidate
+        # Re-evaluate every time unit, but keep the current process when it remains the best candidate.
+        if current_process in available_processes and selection_rank(current_process) <= selection_rank(selected_process):
+            selected_process = current_process
 
         add_timeline_segment(selected_process["id"], time, time + 1)
         selected_process["remainingTime"] -= 1
+        current_process = selected_process
 
         if selected_process["remainingTime"] == 0:
             selected_process["completionTime"] = time + 1
             selected_process["turnaroundTime"] = selected_process["completionTime"] - selected_process["arrival"]
             selected_process["waitingTime"] = selected_process["turnaroundTime"] - selected_process["burst"]
             completed += 1
+            current_process = None
 
         time += 1
 
