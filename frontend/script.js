@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	const addProcessBtn = document.getElementById('addProcessBtn');
 	const generateTableBtn = document.getElementById('generateTableBtn');
 	const runBtn = document.getElementById('runBtn');
+	const compareBtn = document.getElementById('compareBtn');
 	const algorithmSelect = document.getElementById('algorithm');
 	disableNumberInputScroll();
 	
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	generateTableBtn.addEventListener('click', handleGenerateTable);
 	algorithmSelect.addEventListener('change', toggleAlgorithmSpecificInputs);
 	runBtn.addEventListener('click', handleRunSimulation);
+	compareBtn.addEventListener('click', handleCompareAllAlgorithms);
 });
 
 let numberInputScrollDisabled = false;
@@ -45,6 +47,158 @@ function disableNumberInputScroll() {
 	}, { passive: true });
 
 	numberInputScrollDisabled = true;
+}
+
+/**
+ * Safely read the current process table into structured process objects.
+ * When strict is enabled, any missing or invalid required value stops the flow.
+ * @param {Object} options
+ * @param {boolean} options.strict - Whether to reject incomplete rows.
+ * @returns {Array<{id: string, arrival: number, burst: number, priority: number|null}>}
+ */
+function extractProcessData(options = {}) {
+	const strict = Boolean(options.strict);
+	const table = document.getElementById('processTable');
+	const tbody = table.querySelector('tbody');
+	const rows = tbody.querySelectorAll('tr');
+	const processData = [];
+
+	rows.forEach((row, index) => {
+		const inputs = row.querySelectorAll('input');
+		const id = inputs[0] ? inputs[0].value.trim() : '';
+		const arrivalStr = inputs[1] ? inputs[1].value.trim() : '';
+		const burstStr = inputs[2] ? inputs[2].value.trim() : '';
+		const priorityStr = inputs[3] ? inputs[3].value.trim() : '';
+
+		if (!id && !arrivalStr && !burstStr && !priorityStr) {
+			return;
+		}
+
+		if (!id || !arrivalStr || !burstStr) {
+			if (strict) {
+				throw new Error(`Row ${index + 1} must include Process ID, Arrival Time, and Burst Time.`);
+			}
+			return;
+		}
+
+		const arrival = Number(arrivalStr);
+		const burst = Number(burstStr);
+		const priority = priorityStr === '' ? null : Number(priorityStr);
+
+		if (!Number.isFinite(arrival) || !Number.isFinite(burst) || (priorityStr !== '' && !Number.isFinite(priority))) {
+			if (strict) {
+				throw new Error(`Row ${index + 1} contains an invalid numeric value.`);
+			}
+			return;
+		}
+
+		processData.push({
+			id,
+			arrival,
+			burst,
+			priority,
+		});
+	});
+
+	return processData;
+}
+
+function getPriorityInputForProcess(processId) {
+	const table = document.getElementById('processTable');
+	const tbody = table.querySelector('tbody');
+	const rows = tbody.querySelectorAll('tr');
+
+	for (const row of rows) {
+		const inputs = row.querySelectorAll('input');
+		if (inputs[0] && inputs[0].value.trim() === processId) {
+			return inputs[3] || null;
+		}
+	}
+
+	return null;
+}
+
+function updatePriorityInput(processId, value) {
+	const priorityInput = getPriorityInputForProcess(processId);
+	if (priorityInput) {
+		priorityInput.value = String(value);
+	}
+}
+
+function promptForPriorityValues(processData) {
+	for (const process of processData) {
+		if (process.priority !== null && process.priority !== undefined && process.priority !== '') {
+			continue;
+		}
+
+		while (true) {
+			const input = window.prompt(`Enter priority for ${process.id}:`, '');
+
+			if (input === null) {
+				return null;
+			}
+
+			const parsedPriority = Number(input.trim());
+			if (!Number.isFinite(parsedPriority)) {
+				window.alert('Please enter a valid numeric priority for every process.');
+				continue;
+			}
+
+			process.priority = parsedPriority;
+			updatePriorityInput(process.id, parsedPriority);
+			break;
+		}
+	}
+
+	return processData;
+}
+
+function resolveTimeQuantum() {
+	const timeQuantumInput = document.getElementById('timeQuantum');
+	const currentValue = timeQuantumInput ? timeQuantumInput.value.trim() : '';
+
+	if (currentValue !== '') {
+		const parsedValue = Number(currentValue);
+		if (Number.isInteger(parsedValue) && parsedValue > 0) {
+			return parsedValue;
+		}
+	}
+
+	while (true) {
+		const input = window.prompt('Enter a positive integer time quantum for Round Robin:', '');
+
+		if (input === null) {
+			return null;
+		}
+
+		const parsedQuantum = Number(input.trim());
+		if (!Number.isInteger(parsedQuantum) || parsedQuantum <= 0) {
+			window.alert('Please enter a valid positive integer time quantum.');
+			continue;
+		}
+
+		if (timeQuantumInput) {
+			timeQuantumInput.value = String(parsedQuantum);
+		}
+		return parsedQuantum;
+	}
+}
+
+async function postScheduleRequest(url, payload) {
+	const response = await fetch(url, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(payload)
+	});
+
+	const data = await response.json();
+	if (!response.ok) {
+		throw new Error(data.error || 'The scheduling request failed.');
+	}
+
+	return data;
 }
 
 /**
@@ -176,10 +330,17 @@ function addProcessRow() {
  * Sends process data to the Flask backend and renders the returned timeline
  */
 async function handleRunSimulation() {
-	const processData = extractProcessData();
+	let processData;
+
+	try {
+		processData = extractProcessData();
+	} catch (error) {
+		window.alert(error.message);
+		return;
+	}
 	
 	if (processData.length === 0) {
-		console.warn('No valid processes to simulate. Please enter process data.');
+		window.alert('Please enter at least one valid process before running a simulation.');
 		return;
 	}
 	
@@ -190,12 +351,16 @@ async function handleRunSimulation() {
 		algorithm: selectedAlgorithm,
 	};
 
-	if (selectedAlgorithm === 'Round Robin') {
-		const timeQuantumInput = document.getElementById('timeQuantum');
-		const timeQuantum = Number(timeQuantumInput ? timeQuantumInput.value : NaN);
+	if (selectedAlgorithm === 'Preemptive Priority') {
+		const priorityReady = promptForPriorityValues(processData);
+		if (!priorityReady) {
+			return;
+		}
+	}
 
-		if (!Number.isFinite(timeQuantum) || timeQuantum <= 0) {
-			console.warn('Please enter a valid positive Time Quantum for Round Robin.');
+	if (selectedAlgorithm === 'Round Robin') {
+		const timeQuantum = resolveTimeQuantum();
+		if (timeQuantum === null) {
 			return;
 		}
 
@@ -203,19 +368,7 @@ async function handleRunSimulation() {
 	}
 
 	try {
-		const response = await fetch('/schedule', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify(payload)
-		});
-
-		const data = await response.json();
-
-		if (!response.ok) {
-			throw new Error(data.error || 'Failed to schedule processes.');
-		}
+		const data = await postScheduleRequest('/schedule', payload);
 
 		console.log('Scheduling Results:', data.results);
 		console.log('Execution Timeline:', data.timeline);
@@ -224,7 +377,59 @@ async function handleRunSimulation() {
 		renderResultsTable(data.results);
 	} catch (error) {
 		console.error('Simulation failed:', error);
+		window.alert(error.message);
 		return;
+	}
+}
+
+/**
+ * Compare all algorithms using the same process data and strict shared inputs.
+ */
+async function handleCompareAllAlgorithms() {
+	let processData;
+
+	try {
+		processData = extractProcessData({ strict: true });
+	} catch (error) {
+		window.alert(error.message);
+		return;
+	}
+
+	if (processData.length === 0) {
+		window.alert('Please enter at least one process before comparing algorithms.');
+		return;
+	}
+
+	const priorityReady = promptForPriorityValues(processData);
+	if (!priorityReady) {
+		return;
+	}
+
+	const timeQuantum = resolveTimeQuantum();
+	if (timeQuantum === null) {
+		return;
+	}
+
+	const ganttSection = document.getElementById('ganttSection');
+	if (ganttSection) {
+		ganttSection.style.display = 'none';
+	}
+
+	const ganttChart = document.getElementById('ganttChart');
+	if (ganttChart) {
+		ganttChart.innerHTML = '';
+	}
+
+	try {
+		const data = await postScheduleRequest('/compare', {
+			processes: processData,
+			quantum: timeQuantum,
+		});
+
+		renderComparisonResults(data.comparison, data.bestAlgorithm);
+	} catch (error) {
+		console.error('Comparison failed:', error);
+		window.alert(error.message);
 	}
 }
 
@@ -317,60 +522,91 @@ function renderResultsTable(results) {
 }
 
 /**
- * Extract process data from the table
- * Returns an array of process objects with validated data
+ * Render a compact algorithm comparison card with the best row highlighted.
+ * @param {Array<{algorithm: string, averageTurnaroundTime: number, averageWaitingTime: number}>} comparison
+ * @param {string} bestAlgorithm
  */
-function extractProcessData() {
-	const table = document.getElementById('processTable');
-	const tbody = table.querySelector('tbody');
-	const rows = tbody.querySelectorAll('tr');
-	const processData = [];
-	const algorithmSelect = document.getElementById('algorithm');
-	const selectedAlgorithm = algorithmSelect ? algorithmSelect.value : '';
-	const requiresPriority = selectedAlgorithm === 'Preemptive Priority';
-	
-	rows.forEach((row) => {
-		// Get all input elements in the row
-		const inputs = row.querySelectorAll('input');
-		
-		// Extract values from input fields
-		const id = inputs[0].value.trim();
-		const arrivalStr = inputs[1].value.trim();
-		const burstStr = inputs[2].value.trim();
-		const priorityStr = inputs[3].value.trim();
-		
-		// Skip rows where required fields are empty
-		if (!id || !arrivalStr || !burstStr) {
-			return;
+function renderComparisonResults(comparison, bestAlgorithm) {
+	const resultsSection = document.getElementById('resultsSection');
+	if (!resultsSection) {
+		return;
+	}
+
+	resultsSection.innerHTML = '';
+	resultsSection.style.display = 'block';
+
+	const card = document.createElement('div');
+	card.className = 'comparison-card';
+
+	const heading = document.createElement('h2');
+	heading.textContent = 'Algorithm Comparison';
+	card.appendChild(heading);
+
+	const bestEntry = comparison.find((entry) => entry.algorithm === bestAlgorithm) || null;
+	const summary = document.createElement('div');
+	summary.className = 'comparison-card__summary';
+	summary.innerHTML = `
+		<div><strong>Best Algorithm</strong><div>${bestEntry ? bestEntry.algorithm : 'N/A'}</div></div>
+		<div><strong>Selection Rule</strong><div>Lowest Average Waiting Time</div></div>
+	`;
+	card.appendChild(summary);
+
+	if (!comparison || comparison.length === 0) {
+		const emptyMessage = document.createElement('p');
+		emptyMessage.textContent = 'No comparison data available.';
+		card.appendChild(emptyMessage);
+		resultsSection.appendChild(card);
+		return;
+	}
+
+	const table = document.createElement('table');
+	table.className = 'comparisonTable';
+
+	const thead = document.createElement('thead');
+	const headerRow = document.createElement('tr');
+	['Algorithm', 'Avg Turnaround Time', 'Avg Waiting Time', 'Best'].forEach((columnName) => {
+		const th = document.createElement('th');
+		th.scope = 'col';
+		th.textContent = columnName;
+		headerRow.appendChild(th);
+	});
+	thead.appendChild(headerRow);
+	table.appendChild(thead);
+
+	const tbody = document.createElement('tbody');
+
+	comparison.forEach((result) => {
+		const row = document.createElement('tr');
+		if (result.algorithm === bestAlgorithm) {
+			row.classList.add('best-row');
 		}
 
-		if (requiresPriority && !priorityStr) {
-			return;
-		}
-		
-		// Convert numeric strings to numbers
-		const arrival = parseFloat(arrivalStr);
-		const burst = parseFloat(burstStr);
-		const priority = priorityStr ? parseFloat(priorityStr) : 0;
-		
-		// Validate numeric conversions
-		if (isNaN(arrival) || isNaN(burst) || (requiresPriority && isNaN(priority))) {
-			console.warn(`Skipping invalid row: ${id}`);
-			return;
-		}
-		
-		// Create process object and add to array
-		const process = {
-			id: id,
-			arrival: arrival,
-			burst: burst,
-			priority: priority
-		};
-		
-		processData.push(process);
+		const cells = [
+			result.algorithm,
+			Number(result.averageTurnaroundTime || 0).toFixed(2),
+			Number(result.averageWaitingTime || 0).toFixed(2),
+			result.algorithm === bestAlgorithm ? 'Best' : '',
+		];
+
+		cells.forEach((value, cellIndex) => {
+			const cell = document.createElement('td');
+			if (cellIndex === 3 && value === 'Best') {
+				const badge = document.createElement('span');
+				badge.className = 'best-badge';
+				badge.textContent = value;
+				cell.appendChild(badge);
+			} else {
+				cell.textContent = value;
+			}
+			row.appendChild(cell);
+		});
+
+		tbody.appendChild(row);
 	});
-	
-	return processData;
+
+	table.appendChild(tbody);
+	card.appendChild(table);
+	resultsSection.appendChild(card);
 }
 
 /**

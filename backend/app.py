@@ -17,8 +17,16 @@ FRONTEND_DIR = os.path.abspath(os.path.join(BACKEND_DIR, "..", "frontend"))
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 CORS(app)
 
+COMPARISON_ALGORITHMS = [
+	("FCFS", "FCFS"),
+	("SJF", "SJF"),
+	("SRTF", "SRTF"),
+	("RR", "Round Robin"),
+	("PRIORITY", "Priority"),
+]
 
-def _validate_processes(raw_processes):
+
+def _validate_processes(raw_processes, require_priority=False):
 	if not isinstance(raw_processes, list) or not raw_processes:
 		raise ValueError("'processes' must be a non-empty list")
 
@@ -31,16 +39,61 @@ def _validate_processes(raw_processes):
 			if field not in process:
 				raise ValueError(f"Process at index {index} is missing '{field}'")
 
+		priority_value = process.get("priority")
+		if require_priority and (priority_value is None or str(priority_value).strip() == ""):
+			raise ValueError(f"Process at index {index} is missing 'priority'")
+
 		validated.append(
 			{
 				"id": str(process["id"]),
 				"arrival": float(process["arrival"]),
 				"burst": float(process["burst"]),
-				"priority": float(process.get("priority", 0)),
+				"priority": float(priority_value) if priority_value not in (None, "") else 0,
 			}
 		)
 
 	return validated
+
+
+def _validate_quantum(raw_quantum):
+	if raw_quantum in (None, ""):
+		raise ValueError("'quantum' is required for Round Robin")
+
+	if isinstance(raw_quantum, bool):
+		raise ValueError("'quantum' must be a positive integer")
+
+	if isinstance(raw_quantum, float) and not raw_quantum.is_integer():
+		raise ValueError("'quantum' must be a positive integer")
+
+	try:
+		quantum = int(raw_quantum)
+	except (TypeError, ValueError):
+		raise ValueError("'quantum' must be a positive integer") from None
+
+	if quantum <= 0:
+		raise ValueError("'quantum' must be a positive integer")
+
+	return quantum
+
+
+def _summarize_result(algorithm_label, response):
+	results = response.get("results", [])
+	if not results:
+		return {
+			"algorithm": algorithm_label,
+			"averageTurnaroundTime": 0,
+			"averageWaitingTime": 0,
+		}
+
+	turnaround_total = sum(float(result.get("turnaroundTime", 0)) for result in results)
+	waiting_total = sum(float(result.get("waitingTime", 0)) for result in results)
+	count = len(results)
+
+	return {
+		"algorithm": algorithm_label,
+		"averageTurnaroundTime": turnaround_total / count,
+		"averageWaitingTime": waiting_total / count,
+	}
 
 
 @app.route("/schedule", methods=["POST"])
@@ -48,14 +101,51 @@ def schedule_processes():
 	payload = request.get_json(silent=True) or {}
 
 	try:
-		processes = _validate_processes(payload.get("processes"))
 		algorithm = payload.get("algorithm")
 		if not algorithm:
 			raise ValueError("'algorithm' is required")
 
-		quantum = payload.get("quantum", 1)
+		algorithm_name = str(algorithm).strip().upper()
+		require_priority = algorithm_name in {"PRIORITY", "PREEMPTIVE PRIORITY"}
+		processes = _validate_processes(payload.get("processes"), require_priority=require_priority)
+
+		if algorithm_name in {"RR", "ROUND ROBIN"}:
+			quantum = _validate_quantum(payload.get("quantum"))
+		else:
+			quantum = None
+
 		response = schedule(processes, algorithm, quantum=quantum)
 		return jsonify(response), 200
+	except (TypeError, ValueError) as error:
+		return jsonify({"error": str(error)}), 400
+
+
+@app.route("/compare", methods=["POST"])
+def compare_algorithms():
+	payload = request.get_json(silent=True) or {}
+
+	try:
+		processes = _validate_processes(payload.get("processes"), require_priority=True)
+		quantum = _validate_quantum(payload.get("quantum"))
+
+		comparison = []
+		for algorithm, label in COMPARISON_ALGORITHMS:
+			if algorithm == "RR":
+				response = schedule(processes, algorithm, quantum=quantum)
+			else:
+				response = schedule(processes, algorithm)
+
+			comparison.append(_summarize_result(label, response))
+
+		best_algorithm = min(
+			comparison,
+			key=lambda item: (item["averageWaitingTime"], item["averageTurnaroundTime"], item["algorithm"]),
+		)
+
+		return jsonify({
+			"comparison": comparison,
+			"bestAlgorithm": best_algorithm["algorithm"],
+		}), 200
 	except (TypeError, ValueError) as error:
 		return jsonify({"error": str(error)}), 400
 
