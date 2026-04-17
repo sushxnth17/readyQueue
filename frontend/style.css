@@ -334,6 +334,36 @@ button {
 }
 .btn-primary:active { transform: translateY(1px); }
 
+.btn-primary.is-loading {
+	opacity: 0.92;
+	cursor: wait;
+	pointer-events: none;
+}
+
+.btn-primary .btn-spinner {
+	display: none;
+	width: 0.9rem;
+	height: 0.9rem;
+	border-radius: 50%;
+	border: 2px solid rgba(255, 255, 255, 0.35);
+	border-top-color: rgba(255, 255, 255, 0.95);
+	animation: button-spin 1.15s linear infinite;
+	margin-right: 0.1rem;
+}
+
+.btn-primary.is-loading .btn-spinner {
+	display: inline-block;
+}
+
+.btn-primary.is-loading svg {
+	display: none;
+}
+
+@keyframes button-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
 .btn-secondary {
 	background: rgba(255, 255, 255, 0.1);
 	color: #fff;

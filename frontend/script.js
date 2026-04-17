@@ -606,57 +606,115 @@ function addProcessRow() {
 	toggleAlgorithmSpecificInputs();
 }
 
+function setRunButtonLoadingState(isLoading) {
+	const runButton = document.getElementById('runBtn');
+	if (!runButton) {
+		return;
+	}
+
+	if (!runButton.dataset.defaultLabel) {
+		const existingLabel = runButton.querySelector('.btn-label');
+		if (existingLabel && existingLabel.textContent.trim()) {
+			runButton.dataset.defaultLabel = existingLabel.textContent.trim();
+		} else {
+			const labelFromText = Array.from(runButton.childNodes)
+				.filter((node) => node.nodeType === Node.TEXT_NODE)
+				.map((node) => node.textContent)
+				.join(' ')
+				.trim();
+			runButton.dataset.defaultLabel = labelFromText || 'Run Simulation';
+		}
+	}
+
+	let label = runButton.querySelector('.btn-label');
+	if (!label) {
+		label = document.createElement('span');
+		label.className = 'btn-label';
+		label.textContent = runButton.dataset.defaultLabel;
+		runButton
+			.querySelectorAll(':scope > .btn-label')
+			.forEach((duplicateLabel) => duplicateLabel.remove());
+		Array.from(runButton.childNodes).forEach((node) => {
+			if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+				node.remove();
+			}
+		});
+		runButton.appendChild(label);
+	}
+
+	let spinner = runButton.querySelector('.btn-spinner');
+	if (!spinner) {
+		spinner = document.createElement('span');
+		spinner.className = 'btn-spinner';
+		spinner.setAttribute('aria-hidden', 'true');
+		runButton.insertBefore(spinner, label);
+	}
+
+	if (isLoading) {
+		runButton.disabled = true;
+		runButton.classList.add('is-loading');
+		label.textContent = 'Running...';
+		return;
+	}
+
+	runButton.disabled = false;
+	runButton.classList.remove('is-loading');
+	label.textContent = runButton.dataset.defaultLabel;
+}
+
 /**
  * Handle the Run Simulation button click
  * Sends process data to the Flask backend and renders the returned timeline
  */
 async function handleRunSimulation() {
-	if (!validateProcessInputs()) {
-		return;
-	}
-
-	let processData;
+	setRunButtonLoadingState(true);
 
 	try {
-		processData = extractProcessData();
-	} catch (error) {
-		window.alert(error.message);
-		return;
-	}
-	
-	if (processData.length === 0) {
-		window.alert('Please enter at least one valid process before running a simulation.');
-		return;
-	}
-	
-	const algorithmSelect = document.getElementById('algorithm');
-	const selectedAlgorithm = algorithmSelect ? algorithmSelect.value : '';
-	const payload = {
-		processes: processData,
-		algorithm: selectedAlgorithm,
-	};
-
-	if (selectedAlgorithm === 'Preemptive Priority') {
-		const priorityReady = promptForPriorityValues(processData);
-		if (!priorityReady) {
-			return;
-		}
-	}
-
-	if (selectedAlgorithm === 'Round Robin') {
-		if (!validateTimeQuantumInput()) {
+		if (!validateProcessInputs()) {
 			return;
 		}
 
-		const timeQuantum = resolveTimeQuantum();
-		if (timeQuantum === null) {
+		let processData;
+
+		try {
+			processData = extractProcessData();
+		} catch (error) {
+			window.alert(error.message);
 			return;
 		}
 
-		payload.quantum = timeQuantum;
-	}
+		if (processData.length === 0) {
+			window.alert('Please enter at least one valid process before running a simulation.');
+			return;
+		}
 
-	try {
+		const algorithmSelect = document.getElementById('algorithm');
+		const selectedAlgorithm = algorithmSelect ? algorithmSelect.value : '';
+		const payload = {
+			processes: processData,
+			algorithm: selectedAlgorithm,
+		};
+
+		if (selectedAlgorithm === 'Preemptive Priority') {
+			const priorityReady = promptForPriorityValues(processData);
+			if (!priorityReady) {
+				return;
+			}
+		}
+
+		if (selectedAlgorithm === 'Round Robin') {
+			if (!validateTimeQuantumInput()) {
+				return;
+			}
+
+			const timeQuantum = resolveTimeQuantum();
+			if (timeQuantum === null) {
+				return;
+			}
+
+			payload.quantum = timeQuantum;
+		}
+
 		const data = await postScheduleRequest('/schedule', payload);
 
 		console.log('Scheduling Results:', data.results);
@@ -667,7 +725,8 @@ async function handleRunSimulation() {
 	} catch (error) {
 		console.error('Simulation failed:', error);
 		window.alert(error.message);
-		return;
+	} finally {
+		setRunButtonLoadingState(false);
 	}
 }
 
