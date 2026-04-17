@@ -38,7 +38,7 @@ body {
 		radial-gradient(ellipse at 90% 80%, var(--bg-blue) 0%, transparent 50%);
 	background-attachment: fixed;
 	color: var(--text-main);
-	font-family: 'Inter', system-ui, -apple-system, sans-serif;
+	font-family: 'Inter', sans-serif;
 	font-size: 15px;
 	line-height: 1.6;
 	min-height: 100vh;
@@ -101,18 +101,21 @@ header {
 }
 
 header h1 {
-	font-family: 'JetBrains Mono', monospace;
+	font-family: 'Poppins', sans-serif;
 	font-size: 3.5rem;
-	font-weight: 800;
-	background: linear-gradient(to right, #ffffff 30%, #3b82f6);
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+
+	background: linear-gradient(90deg, #a78bfa, #38bdf8);
+
+	/* Standard */
 	background-clip: text;
 	color: transparent;
-	letter-spacing: -2px;
-	margin-bottom: 0.5rem;
-}
 
+	/* For Chrome/Safari */
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+}
 header p {
 	font-size: 1.1rem;
 	color: var(--text-muted);

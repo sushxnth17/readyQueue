@@ -11,7 +11,7 @@ A modern, interactive CPU Scheduling Simulator built to visualize and compare di
   - Shortest Job First (SJF)
   - Shortest Remaining Time First (SRTF)
   - Round Robin (RR)
-  - Priority Scheduling (Preemptive & Non-Preemptive)
+  - Priority Scheduling (Preemptive)
 
 - 🎯 **Gantt Chart Visualization**
   - Real-time execution timeline
