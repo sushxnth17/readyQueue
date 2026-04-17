@@ -9,7 +9,10 @@ document.addEventListener('DOMContentLoaded', function () {
 	const runBtn = document.getElementById('runBtn');
 	const compareBtn = document.getElementById('compareBtn');
 	const algorithmSelect = document.getElementById('algorithm');
+	const processTable = document.getElementById('processTable');
+	const timeQuantumInput = document.getElementById('timeQuantum');
 	disableNumberInputScroll();
+	ensureGlobalValidationMessage();
 	
 	// Initialize table based on process count input
 	const processCountInput = document.getElementById('processCount');
@@ -20,11 +23,20 @@ document.addEventListener('DOMContentLoaded', function () {
 	addProcessBtn.addEventListener('click', addProcessRow);
 	generateTableBtn.addEventListener('click', handleGenerateTable);
 	algorithmSelect.addEventListener('change', toggleAlgorithmSpecificInputs);
+	if (processTable) {
+		processTable.addEventListener('input', handleValidationInputChange);
+	}
+	if (timeQuantumInput) {
+		timeQuantumInput.addEventListener('input', handleValidationInputChange);
+	}
 	runBtn.addEventListener('click', handleRunSimulation);
 	compareBtn.addEventListener('click', handleCompareAllAlgorithms);
 });
 
 let numberInputScrollDisabled = false;
+const MAX_PROCESS_INPUT_VALUE = 1000;
+const LARGE_VALUE_ERROR_MESSAGE = 'Value too large. Please enter a value <= 1000';
+const INTEGER_ONLY_ERROR_MESSAGE = 'Only integer values are allowed';
 
 /**
  * Disable wheel-based value changes on number inputs while preserving typing and keyboard arrows.
@@ -47,6 +59,248 @@ function disableNumberInputScroll() {
 	}, { passive: true });
 
 	numberInputScrollDisabled = true;
+}
+
+function ensureGlobalValidationMessage() {
+	let banner = document.getElementById('globalValidationMessage');
+	if (banner) {
+		return banner;
+	}
+
+	const tableContainer = document.querySelector('.table-container');
+	if (!tableContainer || !tableContainer.parentElement) {
+		return null;
+	}
+
+	banner = document.createElement('div');
+	banner.id = 'globalValidationMessage';
+	banner.className = 'validation-banner';
+	banner.textContent = 'Please fix the highlighted fields';
+	banner.setAttribute('role', 'alert');
+	banner.setAttribute('aria-live', 'polite');
+
+	tableContainer.insertAdjacentElement('afterend', banner);
+	return banner;
+}
+
+function showGlobalValidationMessage() {
+	const banner = ensureGlobalValidationMessage();
+	if (banner) {
+		banner.classList.add('visible');
+	}
+}
+
+function hideGlobalValidationMessage() {
+	const banner = document.getElementById('globalValidationMessage');
+	if (banner) {
+		banner.classList.remove('visible');
+	}
+}
+
+function clearInputError(input) {
+	if (!(input instanceof HTMLInputElement)) {
+		return;
+	}
+
+	input.classList.remove('input-invalid');
+	input.removeAttribute('aria-invalid');
+
+	const errorContainer = getErrorContainer(input);
+	if (!errorContainer) {
+		return;
+	}
+
+	const errorElement = errorContainer.querySelector('.field-error');
+	if (errorElement) {
+		errorElement.remove();
+	}
+}
+
+function setInputError(input, message) {
+	if (!(input instanceof HTMLInputElement)) {
+		return;
+	}
+
+	clearInputError(input);
+	input.classList.add('input-invalid');
+	input.setAttribute('aria-invalid', 'true');
+
+	const errorContainer = getErrorContainer(input);
+	if (!errorContainer) {
+		return;
+	}
+
+	const errorElement = document.createElement('small');
+	errorElement.className = 'field-error';
+	errorElement.textContent = message;
+	errorContainer.appendChild(errorElement);
+}
+
+function getErrorContainer(input) {
+	if (!(input instanceof HTMLInputElement)) {
+		return null;
+	}
+
+	const tableCell = input.closest('td');
+	if (tableCell) {
+		return tableCell;
+	}
+
+	const wrapper = input.closest('.input-wrapper');
+	if (wrapper) {
+		return wrapper.parentElement || wrapper;
+	}
+
+	return input.parentElement;
+}
+
+function hasAnyInvalidInput() {
+	return Boolean(document.querySelector('input.input-invalid'));
+}
+
+function clearAllInputErrors() {
+	const invalidInputs = document.querySelectorAll('#processTable input.input-invalid');
+	invalidInputs.forEach((input) => clearInputError(input));
+	const timeQuantumInput = document.getElementById('timeQuantum');
+	if (timeQuantumInput) {
+		clearInputError(timeQuantumInput);
+	}
+	hideGlobalValidationMessage();
+}
+
+function isPriorityColumnVisible() {
+	const algorithmSelect = document.getElementById('algorithm');
+	return algorithmSelect ? algorithmSelect.value === 'Preemptive Priority' : false;
+}
+
+function validateProcessInputs() {
+	const table = document.getElementById('processTable');
+	if (!table) {
+		return true;
+	}
+
+	clearAllInputErrors();
+
+	const rows = table.querySelectorAll('tbody tr');
+	const priorityVisible = isPriorityColumnVisible();
+	let hasErrors = false;
+
+	rows.forEach((row) => {
+		const inputs = row.querySelectorAll('input');
+		const processIdInput = inputs[0] || null;
+		const arrivalInput = inputs[1] || null;
+		const burstInput = inputs[2] || null;
+		const priorityInput = inputs[3] || null;
+
+		if (processIdInput) {
+			const idValue = processIdInput.value.trim();
+			if (!idValue) {
+				hasErrors = true;
+				setInputError(processIdInput, 'Process ID is required.');
+			}
+		}
+
+		if (arrivalInput) {
+			const arrivalValue = arrivalInput.value.trim();
+			const arrivalNumber = Number(arrivalValue);
+			if (arrivalValue === '' || !Number.isFinite(arrivalNumber) || arrivalNumber < 0) {
+				hasErrors = true;
+				setInputError(arrivalInput, 'Arrival time must be >= 0.');
+			} else if (!Number.isInteger(arrivalNumber)) {
+				hasErrors = true;
+				setInputError(arrivalInput, INTEGER_ONLY_ERROR_MESSAGE);
+			} else if (arrivalNumber > MAX_PROCESS_INPUT_VALUE) {
+				hasErrors = true;
+				setInputError(arrivalInput, LARGE_VALUE_ERROR_MESSAGE);
+			}
+		}
+
+		if (burstInput) {
+			const burstValue = burstInput.value.trim();
+			const burstNumber = Number(burstValue);
+			if (burstValue === '' || !Number.isFinite(burstNumber) || burstNumber <= 0) {
+				hasErrors = true;
+				setInputError(burstInput, 'Burst time must be > 0.');
+			} else if (!Number.isInteger(burstNumber)) {
+				hasErrors = true;
+				setInputError(burstInput, INTEGER_ONLY_ERROR_MESSAGE);
+			} else if (burstNumber > MAX_PROCESS_INPUT_VALUE) {
+				hasErrors = true;
+				setInputError(burstInput, LARGE_VALUE_ERROR_MESSAGE);
+			}
+		}
+
+		if (priorityVisible && priorityInput) {
+			const priorityValue = priorityInput.value.trim();
+			const priorityNumber = Number(priorityValue);
+			if (priorityValue === '' || !Number.isFinite(priorityNumber)) {
+				hasErrors = true;
+				setInputError(priorityInput, 'Priority must be a valid number.');
+			} else if (!Number.isInteger(priorityNumber)) {
+				hasErrors = true;
+				setInputError(priorityInput, INTEGER_ONLY_ERROR_MESSAGE);
+			}
+		}
+	});
+
+	if (hasErrors) {
+		showGlobalValidationMessage();
+		return false;
+	}
+
+	hideGlobalValidationMessage();
+	return true;
+}
+
+function handleValidationInputChange(event) {
+	const target = event.target;
+	if (!(target instanceof HTMLInputElement)) {
+		return;
+	}
+
+	clearInputError(target);
+	if (!hasAnyInvalidInput()) {
+		hideGlobalValidationMessage();
+	}
+}
+
+function validateTimeQuantumInput(options = {}) {
+	const required = Boolean(options.required);
+	const timeQuantumInput = document.getElementById('timeQuantum');
+	if (!timeQuantumInput) {
+		return !required;
+	}
+
+	clearInputError(timeQuantumInput);
+
+	const value = timeQuantumInput.value.trim();
+	if (value === '') {
+		if (required) {
+			setInputError(timeQuantumInput, 'Time quantum must be > 0.');
+			showGlobalValidationMessage();
+			return false;
+		}
+		return true;
+	}
+
+	const parsedValue = Number(value);
+	if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+		setInputError(timeQuantumInput, 'Time quantum must be > 0.');
+		showGlobalValidationMessage();
+		return false;
+	}
+
+	if (!Number.isInteger(parsedValue)) {
+		setInputError(timeQuantumInput, INTEGER_ONLY_ERROR_MESSAGE);
+		showGlobalValidationMessage();
+		return false;
+	}
+
+	if (!hasAnyInvalidInput()) {
+		hideGlobalValidationMessage();
+	}
+
+	return true;
 }
 
 /**
@@ -141,6 +395,11 @@ function promptForPriorityValues(processData) {
 			const parsedPriority = Number(input.trim());
 			if (!Number.isFinite(parsedPriority)) {
 				window.alert('Please enter a valid numeric priority for every process.');
+				continue;
+			}
+
+			if (!Number.isInteger(parsedPriority)) {
+				window.alert(INTEGER_ONLY_ERROR_MESSAGE);
 				continue;
 			}
 
@@ -241,6 +500,24 @@ function toggleAlgorithmSpecificInputs() {
 	if (timeQuantumGroup) {
 		timeQuantumGroup.style.display = showTimeQuantum ? 'flex' : 'none';
 	}
+
+	if (!showPriority) {
+		const priorityInputs = document.querySelectorAll('input[name="priority[]"]');
+		priorityInputs.forEach((input) => clearInputError(input));
+		if (!hasAnyInvalidInput()) {
+			hideGlobalValidationMessage();
+		}
+	}
+
+	if (!showTimeQuantum) {
+		const timeQuantumInput = document.getElementById('timeQuantum');
+		if (timeQuantumInput) {
+			clearInputError(timeQuantumInput);
+		}
+		if (!hasAnyInvalidInput()) {
+			hideGlobalValidationMessage();
+		}
+	}
 }
 
 /**
@@ -267,6 +544,8 @@ function createProcessRow(processNumber) {
 	arrivalTimeInput.type = 'number';
 	arrivalTimeInput.name = 'arrivalTime[]';
 	arrivalTimeInput.placeholder = 'e.g. 0';
+	arrivalTimeInput.min = '0';
+	arrivalTimeInput.max = String(MAX_PROCESS_INPUT_VALUE);
 	arrivalTimeInput.setAttribute('aria-label', 'Arrival Time');
 	arrivalTimeCell.appendChild(arrivalTimeInput);
 
@@ -275,6 +554,8 @@ function createProcessRow(processNumber) {
 	burstTimeInput.type = 'number';
 	burstTimeInput.name = 'burstTime[]';
 	burstTimeInput.placeholder = 'e.g. 5';
+	burstTimeInput.min = '1';
+	burstTimeInput.max = String(MAX_PROCESS_INPUT_VALUE);
 	burstTimeInput.setAttribute('aria-label', 'Burst Time');
 	burstTimeCell.appendChild(burstTimeInput);
 
@@ -330,6 +611,10 @@ function addProcessRow() {
  * Sends process data to the Flask backend and renders the returned timeline
  */
 async function handleRunSimulation() {
+	if (!validateProcessInputs()) {
+		return;
+	}
+
 	let processData;
 
 	try {
@@ -359,6 +644,10 @@ async function handleRunSimulation() {
 	}
 
 	if (selectedAlgorithm === 'Round Robin') {
+		if (!validateTimeQuantumInput()) {
+			return;
+		}
+
 		const timeQuantum = resolveTimeQuantum();
 		if (timeQuantum === null) {
 			return;
@@ -386,6 +675,10 @@ async function handleRunSimulation() {
  * Compare all algorithms using the same process data and strict shared inputs.
  */
 async function handleCompareAllAlgorithms() {
+	if (!validateProcessInputs()) {
+		return;
+	}
+
 	let processData;
 
 	try {
@@ -402,6 +695,10 @@ async function handleCompareAllAlgorithms() {
 
 	const priorityReady = promptForPriorityValues(processData);
 	if (!priorityReady) {
+		return;
+	}
+
+	if (!validateTimeQuantumInput()) {
 		return;
 	}
 

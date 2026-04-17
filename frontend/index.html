@@ -62,9 +62,9 @@
 						<tbody>
 							<tr>
 								<td><input type="text" name="processId[]" aria-label="Process ID"></td>
-								<td><input type="number" name="arrivalTime[]" aria-label="Arrival Time"
+								<td><input type="number" name="arrivalTime[]" min="0" max="1000" aria-label="Arrival Time"
 										placeholder="e.g. 0"></td>
-								<td><input type="number" name="burstTime[]" aria-label="Burst Time"
+								<td><input type="number" name="burstTime[]" min="1" max="1000" aria-label="Burst Time"
 										placeholder="e.g. 5"></td>
 								<td class="priorityColumnCell"><input type="number" name="priority[]"
 										aria-label="Priority" placeholder="e.g. 1"></td>
