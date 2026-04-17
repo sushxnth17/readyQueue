@@ -292,6 +292,12 @@ select option {
 	flex-wrap: wrap;
 	gap: 1.5rem;
 }
+.left-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+}
 .algo-controls {
 	display: flex;
 	align-items: flex-end;

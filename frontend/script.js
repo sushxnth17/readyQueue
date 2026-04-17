@@ -5,6 +5,7 @@
  */
 document.addEventListener('DOMContentLoaded', function () {
 	const addProcessBtn = document.getElementById('addProcessBtn');
+	const loadSampleBtn = document.getElementById('loadSampleBtn');
 	const generateTableBtn = document.getElementById('generateTableBtn');
 	const runBtn = document.getElementById('runBtn');
 	const compareBtn = document.getElementById('compareBtn');
@@ -21,6 +22,9 @@ document.addEventListener('DOMContentLoaded', function () {
 	toggleAlgorithmSpecificInputs();
 	
 	addProcessBtn.addEventListener('click', addProcessRow);
+	if (loadSampleBtn) {
+		loadSampleBtn.addEventListener('click', loadSampleData);
+	}
 	generateTableBtn.addEventListener('click', handleGenerateTable);
 	algorithmSelect.addEventListener('change', toggleAlgorithmSpecificInputs);
 	if (processTable) {
@@ -37,6 +41,9 @@ let numberInputScrollDisabled = false;
 const MAX_PROCESS_INPUT_VALUE = 1000;
 const LARGE_VALUE_ERROR_MESSAGE = 'Value too large. Please enter a value <= 1000';
 const INTEGER_ONLY_ERROR_MESSAGE = 'Only integer values are allowed';
+const SAMPLE_BURST_PATTERN = [8, 4, 2, 1, 4, 2];
+const SAMPLE_PRIORITY_PATTERN = [3, 1, 2, 4, 1, 2];
+const SAMPLE_TIME_QUANTUM = '2';
 
 /**
  * Disable wheel-based value changes on number inputs while preserving typing and keyboard arrows.
@@ -604,6 +611,61 @@ function addProcessRow() {
 	tbody.appendChild(createProcessRow(nextProcessNumber));
 	disableNumberInputScroll();
 	toggleAlgorithmSpecificInputs();
+}
+
+function loadSampleData() {
+	const table = document.getElementById('processTable');
+	if (!table) {
+		return;
+	}
+
+	const rows = table.querySelectorAll('tbody tr');
+	const shouldFillPriority = isPriorityColumnVisible();
+
+	rows.forEach((row, index) => {
+		const inputs = row.querySelectorAll('input');
+		const processIdInput = inputs[0] || null;
+		const arrivalInput = inputs[1] || null;
+		const burstInput = inputs[2] || null;
+		const priorityInput = inputs[3] || null;
+		const processId = `P${index + 1}`;
+		const arrival = String(index);
+		const burst = String(SAMPLE_BURST_PATTERN[index % SAMPLE_BURST_PATTERN.length]);
+		const priority = String(SAMPLE_PRIORITY_PATTERN[index % SAMPLE_PRIORITY_PATTERN.length]);
+
+		if (processIdInput) {
+			processIdInput.value = processId;
+			clearInputError(processIdInput);
+		}
+
+		if (arrivalInput) {
+			arrivalInput.value = arrival;
+			clearInputError(arrivalInput);
+		}
+
+		if (burstInput) {
+			burstInput.value = burst;
+			clearInputError(burstInput);
+		}
+
+		if (shouldFillPriority && priorityInput) {
+			priorityInput.value = priority;
+			clearInputError(priorityInput);
+		}
+	});
+
+	const algorithmSelect = document.getElementById('algorithm');
+	if (algorithmSelect && algorithmSelect.value === 'Round Robin') {
+		const timeQuantumInput = document.getElementById('timeQuantum');
+		if (timeQuantumInput) {
+			timeQuantumInput.value = SAMPLE_TIME_QUANTUM;
+			clearInputError(timeQuantumInput);
+		}
+	}
+
+	if (!hasAnyInvalidInput()) {
+		hideGlobalValidationMessage();
+	}
 }
 
 function setRunButtonLoadingState(isLoading) {
