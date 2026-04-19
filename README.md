@@ -4,6 +4,24 @@ A modern, interactive CPU Scheduling Simulator built to visualize and compare di
 
 ---
 
+## 🌐 Live Demo
+
+🔗 https://readyqueue.vercel.app  
+
+
+---
+
+## 🏗️ Deployment Architecture
+
+- Frontend hosted on **Vercel**
+- Backend API hosted on **Render**
+- Connected via REST APIs
+
+This separation ensures better performance, scalability, and real-world deployment structure.
+
+---
+
+
 ## 🌟 Features
 
 - 📊 **Supports Multiple Algorithms**
@@ -51,7 +69,7 @@ ReadyQueue provides a **visual and interactive way** to:
 ### Frontend
 - HTML, CSS, JavaScript
 - Modern UI styling (Glassmorphism + Gradients)
-- Antigravity (for UI inspiration/design)
+- Custom UI inspired by modern dashboard design principles
 
 ### Backend
 - Python
@@ -95,7 +113,9 @@ ReadyQueue provides a **visual and interactive way** to:
 - 📄 Export results (PDF / CSV)
 - 📊 Graph-based analytics
 - 🤖 AI-based algorithm recommendation
-- 🌐 Full deployment (cloud hosting)
+- 🌐 Custom domain setup
+- ⚡ Performance optimization (cold start handling)
+- 📱 Advanced mobile UI improvements
 
 ---
 
