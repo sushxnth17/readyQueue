@@ -879,3 +879,53 @@ footer {
 		font-size: 0.85rem;
 	}
 }
+
+@media (max-width: 600px) {
+	#processTable {
+		width: 100%;
+		min-width: 0;
+		table-layout: fixed;
+	}
+
+	#processTable th,
+	#processTable td {
+		padding: 0.65rem 0.45rem;
+	}
+
+	#processTable th:first-child,
+	#processTable td:first-child {
+		width: 70px;
+		max-width: 70px;
+		white-space: nowrap;
+		text-align: center;
+	}
+
+	#processTable td:first-child input[name="processId[]"] {
+		max-width: 52px;
+		margin: 0 auto;
+		padding: 0.5rem 0.35rem;
+		text-align: center;
+		font-weight: 600;
+		letter-spacing: 0.01em;
+		background: transparent;
+		border-color: transparent;
+	}
+
+	#processTable th:nth-child(2),
+	#processTable td:nth-child(2),
+	#processTable th:nth-child(3),
+	#processTable td:nth-child(3) {
+		width: 36%;
+	}
+
+	#processTable th:nth-child(4),
+	#processTable td:nth-child(4) {
+		width: 28%;
+	}
+
+	#processTable td input[type="number"],
+	#processTable td input[type="text"] {
+		width: 100%;
+		min-width: 0;
+	}
+}
