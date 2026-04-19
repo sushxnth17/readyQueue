@@ -777,7 +777,7 @@ async function handleRunSimulation() {
 			payload.quantum = timeQuantum;
 		}
 
-		const data = await postScheduleRequest('/schedule', payload);
+		const data = await postScheduleRequest('https://readyqueue.onrender.com/schedule', payload);
 
 		console.log('Scheduling Results:', data.results);
 		console.log('Execution Timeline:', data.timeline);
