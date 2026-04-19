@@ -6,7 +6,7 @@ A modern, interactive CPU Scheduling Simulator built to visualize and compare di
 
 ## 🌐 Live Demo
 
-🔗 https://readyqueue.vercel.app  
+🔗 https://ready-queue.vercel.app  
 
 
 ---
