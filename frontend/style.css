@@ -710,11 +710,161 @@ footer {
 
 /* Responsive */
 @media (max-width: 768px) {
-	.algo-controls { flex-direction: column; align-items: stretch; }
-	.action-buttons { flex-direction: column; align-items: stretch; }
-	.select-wrapper { min-width: 100%; }
-	.input-controls-top { flex-direction: column; align-items: stretch; }
-	th, td { padding: 0.75rem 0.5rem; font-size: 0.8rem; }
-	.glass-card { padding: 1.5rem; }
-	.comparison-card { padding: 1rem; }
+	body {
+		background-attachment: scroll;
+	}
+
+	.main-container {
+		padding: 1rem 0.75rem 1.5rem;
+	}
+
+	header {
+		margin-bottom: 1.5rem;
+	}
+
+	header h1 {
+		font-size: clamp(2rem, 9vw, 3rem);
+		line-height: 1.05;
+	}
+
+	header p {
+		font-size: clamp(0.9rem, 3.8vw, 1.05rem);
+	}
+
+	.card-header {
+		align-items: flex-start;
+		gap: 0.75rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.card-header h2,
+	.results-section h2 {
+		font-size: clamp(1.05rem, 4.2vw, 1.3rem);
+	}
+
+	.glass-card {
+		padding: 1.1rem;
+		margin-bottom: 1rem;
+		border-radius: 16px;
+	}
+
+	.input-controls-top,
+	.bottom-controls,
+	.algo-controls,
+	.action-buttons,
+	.left-actions,
+	.input-group.inline {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.input-controls-top,
+	.bottom-controls,
+	.algo-controls,
+	.action-buttons,
+	.left-actions {
+		gap: 0.85rem;
+	}
+
+	.input-group,
+	.select-wrapper,
+	.input-wrapper,
+	button,
+	input[type="text"],
+	input[type="number"],
+	select {
+		width: 100%;
+		max-width: 100%;
+	}
+
+	.select-wrapper {
+		min-width: 0;
+	}
+
+	button {
+		min-height: 48px;
+	}
+
+	.input-group label {
+		font-size: 0.78rem;
+	}
+
+	.table-container,
+	.resultsTable,
+	.comparisonTable,
+	#ganttChart {
+		width: 100%;
+		max-width: 100%;
+	}
+
+	.table-container,
+	#ganttChart {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.table-container {
+		overflow-y: hidden;
+	}
+
+	table,
+	.resultsTable,
+	.comparisonTable {
+		min-width: 640px;
+	}
+
+	th,
+	td {
+		padding: 0.7rem 0.55rem;
+		font-size: 0.78rem;
+	}
+
+	#ganttChart {
+		padding-bottom: 0.5rem;
+	}
+
+	.ganttTimeline {
+		gap: 1.25rem;
+	}
+
+	.ganttBlocksContainer {
+		height: 68px;
+		min-width: max-content;
+	}
+
+	.ganttBlock {
+		font-size: 0.85rem;
+	}
+
+	.ganttTimeScale {
+		min-width: max-content;
+	}
+
+	.comparison-card {
+		padding: 1rem;
+	}
+
+	.comparison-card__summary {
+		flex-direction: column;
+		align-items: stretch;
+		padding: 0.9rem 1rem;
+	}
+
+	.resultsAverages {
+		grid-template-columns: 1fr;
+		gap: 1rem;
+	}
+
+	.averageCard {
+		padding: 1.1rem;
+	}
+
+	.averageValue {
+		font-size: clamp(1.9rem, 10vw, 2.5rem);
+	}
+
+	footer {
+		padding-bottom: 1.25rem;
+		font-size: 0.85rem;
+	}
 }
