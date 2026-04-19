@@ -917,7 +917,12 @@ function renderResultsTable(results) {
 	});
 
 	table.appendChild(tbody);
-	resultsSection.appendChild(table);
+
+	const tableWrapper = document.createElement('div');
+	tableWrapper.className = 'table-wrapper';
+	tableWrapper.appendChild(table);
+
+	resultsSection.appendChild(tableWrapper);
 
 	const averageContainer = document.createElement('div');
 	averageContainer.className = 'resultsAverages';

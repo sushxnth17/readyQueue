@@ -614,6 +614,7 @@ td input[type="text"]:focus, td input[type="number"]:focus {
 .table-wrapper {
 	width: 100%;
 	overflow-x: auto;
+	overflow-y: hidden;
 	-webkit-overflow-scrolling: touch;
 }
 .comparisonTable {
@@ -927,5 +928,25 @@ footer {
 	#processTable td input[type="text"] {
 		width: 100%;
 		min-width: 0;
+	}
+
+	.results-section {
+		overflow-x: hidden;
+	}
+
+	.resultsTable {
+		min-width: 600px;
+	}
+
+	.resultsTable th:first-child,
+	.resultsTable td:first-child {
+		width: 72px;
+		max-width: 72px;
+		white-space: nowrap;
+	}
+
+	.resultsTable th,
+	.resultsTable td {
+		white-space: nowrap;
 	}
 }
