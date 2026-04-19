@@ -1023,7 +1023,12 @@ function renderComparisonResults(comparison, bestAlgorithm) {
 	});
 
 	table.appendChild(tbody);
-	card.appendChild(table);
+
+	const tableWrapper = document.createElement('div');
+	tableWrapper.className = 'table-wrapper';
+	tableWrapper.appendChild(table);
+
+	card.appendChild(tableWrapper);
 	resultsSection.appendChild(card);
 }
 

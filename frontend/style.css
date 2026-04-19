@@ -611,8 +611,14 @@ td input[type="text"]:focus, td input[type="number"]:focus {
 	color: #fff;
 	font-weight: 700;
 }
+.table-wrapper {
+	width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
 .comparisonTable {
 	width: 100%;
+	min-width: 600px;
 	border-collapse: collapse;
 	overflow: hidden;
 	border-radius: var(--border-radius-md);
@@ -623,6 +629,7 @@ td input[type="text"]:focus, td input[type="number"]:focus {
 .comparisonTable td {
 	text-align: center;
 	padding: 1rem 1.1rem;
+	white-space: nowrap;
 }
 .comparisonTable tbody tr {
 	transition: transform 0.2s ease, background 0.2s ease;
@@ -811,6 +818,10 @@ footer {
 	.resultsTable,
 	.comparisonTable {
 		min-width: 640px;
+	}
+
+	.comparisonTable {
+		min-width: 600px;
 	}
 
 	th,
