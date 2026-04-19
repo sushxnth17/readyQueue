@@ -1,2 +1,4 @@
 Flask>=3.0.0
-# CORS support is provided locally in backend/flask_cors/__init__.py
+flask-cors
+gunicorn
+
