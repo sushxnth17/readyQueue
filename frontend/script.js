@@ -839,7 +839,7 @@ async function handleCompareAllAlgorithms() {
 	}
 
 	try {
-		const data = await postScheduleRequest('/compare', {
+		const data = await postScheduleRequest('https://readyqueue.onrender.com/compare', {
 			processes: processData,
 			quantum: timeQuantum,
 		});
