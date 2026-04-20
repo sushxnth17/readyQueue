@@ -4,7 +4,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>ReadyQueue | CPU Scheduling Simulator</title>
+	<title>ReadyQueue</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
@@ -12,157 +12,60 @@
 </head>
 
 <body>
-	<div class="background-effects">
-		<div class="glow-orb orb-1"></div>
-		<div class="glow-orb orb-2"></div>
-		<div class="glow-orb orb-3"></div>
+	<div class="section-nav" aria-label="Section navigation">
+		<button id="sectionNavToggle" class="section-nav-toggle" type="button" aria-expanded="false"
+			aria-controls="sectionNavMenu" aria-label="Open section menu">⋮</button>
+		<div id="sectionNavMenu" class="section-nav-menu" hidden>
+			<button type="button" class="section-nav-item" data-section-target="home">Home</button>
+			<button type="button" class="section-nav-item" data-section-target="about">About</button>
+			<button type="button" class="section-nav-item" data-section-target="contact">Contact</button>
+		</div>
 	</div>
 
-	<div class="main-container">
-		<header class="fade-in">
+	<main class="landing-shell">
+		<section id="home" class="landing-hero reveal-section">
+			<p class="section-kicker">CPU Scheduling Simulator</p>
 			<h1>ReadyQueue</h1>
-			<p>Where processes compete for CPU time</p>
-		</header>
-
-		<main>
-			<section aria-labelledby="process-input-heading" class="glass-card fade-in stagger-1">
-				<div class="card-header">
-					<div class="icon-box">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+			<p class="landing-subtitle">Visualize and compare CPU scheduling algorithms.
+				Understand performance through real-time simulation.
+				Make better scheduling decisions with clarity.</p>
+			<div class="landing-actions">
+				<a class="btn-primary landing-start" href="simulator.html">
+					<span class="landing-start-label">Start Simulation</span>
+					<span class="landing-start-icon" aria-hidden="true">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 							stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M12 20V10"></path>
-							<path d="M18 20V4"></path>
-							<path d="M6 20v-4"></path>
+							<path d="M5 12h13"></path>
+							<path d="M13 6l7 6-7 6"></path>
 						</svg>
-					</div>
-					<h2 id="process-input-heading">Process Configuration</h2>
-				</div>
-
-				<div class="input-controls-top">
-					<div class="input-group">
-						<label for="processCount">Number of Processes</label>
-						<div class="input-wrapper">
-							<input id="processCount" type="number" name="processCount" value="3" min="1" step="1"
-								aria-label="Number of Processes">
-						</div>
-					</div>
-					<button id="generateTableBtn" class="btn-secondary" type="button">Generate Table</button>
-				</div>
-
-				<div class="table-container">
-					<table id="processTable">
-						<thead>
-							<tr>
-								<th scope="col">Process ID</th>
-								<th scope="col">Arrival Time</th>
-								<th scope="col">Burst Time</th>
-								<th scope="col" class="priorityColumnHeader">Priority</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td><input type="text" name="processId[]" aria-label="Process ID"></td>
-								<td><input type="number" name="arrivalTime[]" min="0" max="1000" aria-label="Arrival Time"
-										placeholder="e.g. 0"></td>
-								<td><input type="number" name="burstTime[]" min="1" max="1000" aria-label="Burst Time"
-										placeholder="e.g. 5"></td>
-								<td class="priorityColumnCell"><input type="number" name="priority[]"
-										aria-label="Priority" placeholder="e.g. 1"></td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-
-				<div class="bottom-controls">
-					<div class="left-actions">
-						<button id="addProcessBtn" class="btn-outline" type="button">
-							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-								stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<line x1="12" y1="5" x2="12" y2="19"></line>
-								<line x1="5" y1="12" x2="19" y2="12"></line>
-							</svg>
-							Add Process
-						</button>
-						<button id="loadSampleBtn" class="btn-secondary" type="button">Load Sample Data</button>
-					</div>
-
-					<div class="algo-controls">
-						<div class="input-group">
-							<label for="algorithm">Algorithm</label>
-							<div class="select-wrapper">
-								<select id="algorithm" name="algorithm">
-									<option value="FCFS">First Come First Serve (FCFS)</option>
-									<option value="SJF">Shortest Job First (SJF)</option>
-									<option value="SRTF">Shortest Remaining Time (SRTF)</option>
-									<option value="Round Robin">Round Robin</option>
-									<option value="Preemptive Priority">Preemptive Priority</option>
-								</select>
-								<div class="select-arrow">
-									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-										stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-										<polyline points="6 9 12 15 18 9"></polyline>
-									</svg>
-								</div>
-							</div>
-						</div>
-
-						<div id="timeQuantumGroup" class="input-group">
-							<label for="timeQuantum">Time Quantum</label>
-							<div class="input-wrapper">
-								<input id="timeQuantum" type="number" name="timeQuantum" min="1" step="1"
-									aria-label="Time Quantum">
-							</div>
-						</div>
-
-						<div class="action-buttons">
-							<button id="compareBtn" class="btn-secondary" type="button">
-								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M3 3h18"></path>
-									<path d="M3 21h18"></path>
-									<path d="M7 3v18"></path>
-									<path d="M17 3v18"></path>
-								</svg>
-								Compare All Algorithms
-							</button>
-
-							<button id="runBtn" class="btn-primary" type="button">
-								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<polygon points="5 3 19 12 5 21 5 3"></polygon>
-								</svg>
-								Run Simulation
-							</button>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<section aria-labelledby="gantt-heading" id="ganttSection" class="glass-card fade-in stagger-2"
-				style="display: none;">
-				<div class="card-header">
-					<div class="icon-box neon-green">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-							stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-						</svg>
-					</div>
-					<h2 id="gantt-heading">Execution Timeline</h2>
-				</div>
-				<div id="ganttChart"></div>
-			</section>
-
-			<div id="resultsSection" class="results-section fade-in stagger-3" style="display: none;">
-				<!-- Process rendered dynamically by JS -->
+					</span>
+				</a>
 			</div>
-		</main>
-	</div>
+		</section>
 
-	<footer>
-		<p>Happy learning!!!</p>
-	</footer>
+		<section id="about" class="page-section reveal-section">
+			<div class="info-panel">
+				<h2>About</h2>
+				<p>ReadyQueue is a CPU scheduling visualizer built to help students and developers understand how different algorithms behave on the same workload.</p>
+				<p>It provides real-time execution timelines, performance metrics, and algorithm comparison to make learning more intuitive and practical.</p>
+				<p>Supported algorithms include FCFS, SJF, SRTF, Round Robin, and Preemptive Priority.</p>
+			</div>
+		</section>
 
-	<script src="script.js"></script>
+		<section id="contact" class="page-section reveal-section">
+			<div class="info-panel">
+				<h2>Contact</h2>
+				<div class="contact-links">
+					<a href="https://github.com/sushxnth17" target="_blank" rel="noreferrer">GitHub</a>
+					<a href="https://www.linkedin.com/in/sushanth17/" target="_blank" rel="noreferrer">LinkedIn</a>
+					<a href="mailto:sushanth0951s@gmail.com">Email</a>
+					<a href="https://sushanth17.vercel.app" target="_blank" rel="noreferrer">Portfolio</a>
+				</div>
+			</div>
+		</section>
+		<div class="footer-credit">Built by Sushanth</div>
+	</main>
+	<script src="landing.js"></script>
 </body>
 
 </html>
