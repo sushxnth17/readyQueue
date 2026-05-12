@@ -110,11 +110,7 @@ ReadyQueue provides a **visual and interactive way** to:
 
 ## 🚀 Future Enhancements
 
-- 📄 Export results (PDF / CSV)
-- 📊 Graph-based analytics
 - 🤖 AI-based algorithm recommendation
-- 🌐 Custom domain setup
-- ⚡ Performance optimization (cold start handling)
 - 📱 Advanced mobile UI improvements
 
 ---
